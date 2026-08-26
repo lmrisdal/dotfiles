@@ -1,0 +1,12 @@
+# Created by newuser for 5.9.2
+
+if ! [[ "$PATH" =~ "$HOME/.local/bin:$HOME/bin:" ]]; then
+    PATH="$HOME/.local/bin:$HOME/bin:$PATH"
+fi
+export PATH
+
+source /home/linuxbrew/.linuxbrew/share/zsh-autocomplete/zsh-autocomplete.plugin.zsh
+
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+eval "$(starship init zsh)"

@@ -1,0 +1,33 @@
+{
+  "Install": [],
+  "WPFInstall": [],
+  "WPFFeature": [],
+  "WPFTweaks": [
+    "WPFTweaksRestorePoint",
+    "WPFTweaksWifi",
+    "WPFTweaksRightClickMenu",
+    "WPFTweaksDisableLMS1",
+    "WPFTweaksStorage",
+    "WPFTweaksHiber",
+    "WPFTweaksRemoveHome",
+    "WPFTweaksConsumerFeatures",
+    "WPFTweaksRemoveGallery",
+    "WPFTweaksTele",
+    "WPFTweaksAH",
+    "WPFTweaksEndTaskOnTaskbar",
+    "WPFTweaksEdgeDebloat",
+    "WPFTweaksRemoveCopilot",
+    "WPFTweaksLoc",
+    "WPFTweaksRemoveOnedrive",
+    "WPFTweaksHome",
+    "WPFTweaksDisableExplorerAutoDiscovery",
+    "WPFTweaksBraveDebloat",
+    "WPFTweaksPowershell7Tele",
+    "WPFTweaksDeleteTempFiles",
+    "WPFTweaksUTC",
+    "WPFTweaksRecallOff",
+    "WPFTweaksPowershell7",
+    "WPFTweaksServices",
+    "WPFTweaksDisableCrossDeviceResume"
+  ]
+}

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Reboot into Windows
+Comment=Set Windows as the next boot entry and reboot
+Exec=boot-windows
+Icon=boot-windows
+Terminal=false
+Categories=System;
+StartupNotify=true
