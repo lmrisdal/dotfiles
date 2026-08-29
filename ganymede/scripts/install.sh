@@ -10,6 +10,7 @@ data_dir="${XDG_DATA_HOME:-$HOME/.local/share}"
 
 install -Dm755 "$script_dir/toggle-hdr.sh" "$bin_dir/toggle-hdr"
 install -Dm755 "$script_dir/toggle-vrr.sh" "$bin_dir/toggle-vrr"
+install -Dm755 "$script_dir/toggle-night-light.sh" "$bin_dir/toggle-night-light"
 install -Dm755 "$script_dir/boot-windows.sh" "$bin_dir/boot-windows"
 install -Dm644 "$project_dir/desktop/boot-windows.desktop" "$data_dir/applications/boot-windows.desktop"
 install -Dm644 "$project_dir/icons/boot-windows.png" "$data_dir/icons/hicolor/256x256/apps/boot-windows.png"

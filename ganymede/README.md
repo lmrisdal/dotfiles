@@ -16,8 +16,12 @@ an absolute executable path to override that choice. It backs up a differing
 existing `~/.zshrc` and `konsolerc` before changing them. The installed shell
 configuration is an exact copy of the checked-in `zsh/zshrc` file.
 
-`scripts/toggle-hdr.sh` and `scripts/toggle-vrr.sh` toggle the corresponding
-KDE display setting. They require `kscreen-doctor` and `jq`.
+`scripts/toggle-hdr.sh`, `scripts/toggle-vrr.sh`, and
+`scripts/toggle-night-light.sh` toggle the corresponding KDE display setting.
+The HDR and VRR helpers require `kscreen-doctor` and `jq`; the Night Light
+helper requires Plasma 6's `kreadconfig6`, `kwriteconfig6`, and `qdbus6`.
+It switches between **Always off** and **Sunrise and sunset**, preserving the
+configured color temperatures and day-night timing.
 When `notify-send` is available (it normally is on Bazzite), they send a desktop
 notification after completing successfully.
 
@@ -26,6 +30,7 @@ Pass the output name explicitly, for example:
 ```sh
 ./scripts/toggle-hdr.sh DP-1
 ./scripts/toggle-vrr.sh DP-1
+./scripts/toggle-night-light.sh
 ```
 
 Install the helper commands in `~/.local/bin` with:
