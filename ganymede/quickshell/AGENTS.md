@@ -1,0 +1,60 @@
+# Quickshell configuration guidelines
+
+## Project context
+
+- This directory is the live configuration: `~/.config/quickshell` is a symlink
+  to `/home/lars/Projects/quickshell`.
+- Target environment: KDE Plasma on Wayland, CachyOS/Arch, Quickshell 0.3.x.
+- Do not modify Plasma panels, Autostart, or other desktop settings unless the
+  user explicitly asks. Keep the Plasma panel as a fallback while this shell is
+  developed.
+
+## Architecture
+
+- Keep `shell.qml` as the minimal entry point. Compose long-lived features from
+  it through focused, upper-camel-case QML components such as `Bar.qml` and
+  `Tray.qml`.
+- Each visual feature belongs in its own QML file. Keep OS/service integration
+  close to the component that consumes it; extract shared state into a singleton
+  only when two or more components need it.
+- Use `PanelWindow` for bars and `PopupWindow` anchored to a control for menus
+  and drawers. Use `Variants` over `Quickshell.screens` for per-monitor panels.
+- Preserve the existing Catppuccin-style palette unless the user requests a
+  visual redesign.
+- Keep all bar controls visually consistent: use `#cdd6f4` for active icons,
+  `#6c7086` for unavailable or disconnected icons, and `#313244` for hover
+  surfaces. Tint system-theme icons explicitly instead of inheriting their
+  arbitrary theme colors.
+
+## QML and Quickshell conventions
+
+- Use four-space indentation, double-quoted strings, and descriptive `id`s.
+- Import only the modules a file uses. Prefer Quickshell services and Qt APIs to
+  polling shell commands.
+- Treat reactive bindings as the default. Do not create timers or external
+  processes for information Quickshell exposes natively.
+- Use `Quickshell.Services.Pipewire` plus `PwObjectTracker` for audio controls;
+  volume and mute access require the selected PipeWire node to be bound.
+- Tray behavior: items with `Status.Passive`, or an ID listed in
+  `Tray.hiddenItemIds`, belong in the overflow drawer; `Active` and
+  `NeedsAttention` otherwise stay visible. Preserve left, middle, and right
+  click semantics for every tray icon.
+- The tray has a user-defined display order persisted in Quickshell state. Do
+  not reorder `SystemTray.items` directly; reorder the rendered model instead.
+  Manual hide/show operations are persisted in the same state file.
+- Every bar popup must close when Escape is pressed and when the user clicks an
+  unoccupied area of the bar. Keep its open state on the owning control so the
+  bar can dismiss it alongside other popups.
+
+## Verification
+
+- Validate every QML edit from this repository before handing it off:
+
+  ```bash
+  timeout --signal=INT 3s quickshell --path /home/lars/Projects/quickshell
+  ```
+
+  Exit status `124` is expected because `timeout` stops the running shell. The
+  important result is `Configuration Loaded` with no QML errors.
+- Quickshell live-reloads while running. Do not use `pkill quickshell` or change
+  the user’s currently running shell without clear authorization.
