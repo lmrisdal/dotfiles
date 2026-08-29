@@ -10,7 +10,10 @@ PopupWindow {
     required property var tray
     required property var notificationServer
     property real drawerProgress: 0
-    readonly property int drawerHeight: Math.min(implicitHeight, contentColumn.implicitHeight + 28)
+    property var selectedPowerAction: null
+    readonly property int drawerHeight: selectedPowerAction
+        ? 190
+        : Math.min(implicitHeight, contentColumn.implicitHeight + 28)
 
     visible: false
     implicitWidth: 380
@@ -79,8 +82,10 @@ PopupWindow {
     }
 
     onVisibleChanged: {
-        if (!visible)
+        if (!visible) {
+            selectedPowerAction = null
             root.tray.controlCenterOpen = false
+        }
     }
 
     Rectangle {
@@ -98,7 +103,10 @@ PopupWindow {
         transform: Translate { y: -8 * (1 - root.drawerProgress) }
 
         Keys.onEscapePressed: event => {
-            root.tray.controlCenterOpen = false
+            if (root.selectedPowerAction)
+                root.selectedPowerAction = null
+            else
+                root.tray.controlCenterOpen = false
             event.accepted = true
         }
 
@@ -109,6 +117,7 @@ PopupWindow {
             anchors.margins: 14
             width: parent.width - 28
             spacing: 12
+            visible: !root.selectedPowerAction
 
             Item {
                 width: parent.width
@@ -414,7 +423,93 @@ PopupWindow {
                             id: powerMouse
                             anchors.fill: parent
                             hoverEnabled: true
-                            onClicked: Quickshell.execDetached(modelData.command)
+                            onClicked: root.selectedPowerAction = modelData
+                        }
+                    }
+                }
+            }
+        }
+
+        Column {
+            anchors.centerIn: parent
+            width: parent.width - 28
+            visible: !!root.selectedPowerAction
+            spacing: 14
+
+            Text {
+                width: parent.width
+                text: root.selectedPowerAction ? root.selectedPowerAction.icon : ""
+                color: "#f38ba8"
+                horizontalAlignment: Text.AlignHCenter
+                font.pixelSize: 30
+            }
+
+            Text {
+                width: parent.width
+                text: root.selectedPowerAction ? root.selectedPowerAction.label + "?" : ""
+                color: "#cdd6f4"
+                horizontalAlignment: Text.AlignHCenter
+                font.pixelSize: 17
+                font.bold: true
+            }
+
+            Text {
+                width: parent.width
+                text: root.selectedPowerAction && root.selectedPowerAction.label === "Sleep"
+                    ? "Your session will remain open."
+                    : "Any unsaved work may be lost."
+                color: "#a6adc8"
+                horizontalAlignment: Text.AlignHCenter
+                font.pixelSize: 13
+            }
+
+            Row {
+                width: parent.width
+                spacing: 8
+
+                Rectangle {
+                    width: (parent.width - parent.spacing) / 2
+                    height: 36
+                    radius: 6
+                    color: cancelMouse.containsMouse ? "#45475a" : "#313244"
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "Cancel"
+                        color: "#cdd6f4"
+                        font.pixelSize: 13
+                    }
+
+                    MouseArea {
+                        id: cancelMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: root.selectedPowerAction = null
+                    }
+                }
+
+                Rectangle {
+                    width: (parent.width - parent.spacing) / 2
+                    height: 36
+                    radius: 6
+                    color: confirmMouse.containsMouse ? "#eba0ac" : "#f38ba8"
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: root.selectedPowerAction ? root.selectedPowerAction.label : "Confirm"
+                        color: "#1e1e2e"
+                        font.pixelSize: 13
+                        font.bold: true
+                    }
+
+                    MouseArea {
+                        id: confirmMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            Quickshell.execDetached(root.selectedPowerAction.command)
+                            root.selectedPowerAction = null
+                            root.tray.controlCenterOpen = false
                         }
                     }
                 }
