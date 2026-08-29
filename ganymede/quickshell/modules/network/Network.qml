@@ -7,6 +7,7 @@ import Qt5Compat.GraphicalEffects
 Item {
     id: root
 
+    property bool popupOpen: false
     readonly property var wifiDevice: connectedDevice(DeviceType.Wifi)
     readonly property var wiredDevice: connectedDevice(DeviceType.Wired)
     readonly property var wifiNetwork: wifiDevice
@@ -75,6 +76,7 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+            onContainsMouseChanged: root.popupOpen = containsMouse
 
             onClicked: mouse => {
                 if (mouse.button === Qt.LeftButton)
@@ -87,7 +89,7 @@ Item {
 
     PopupWindow {
         id: networkPopup
-        visible: networkMouse.containsMouse
+        visible: root.popupOpen
         implicitWidth: 430
         implicitHeight: 116
         color: "transparent"

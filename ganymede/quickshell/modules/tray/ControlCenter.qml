@@ -44,15 +44,15 @@ PopupWindow {
     }
 
     Component.onCompleted: {
-        if (tray.controlCenterOpen)
+        if (tray.popupOpen)
             showDrawer()
     }
 
     Connections {
         target: root.tray
 
-        function onControlCenterOpenChanged() {
-            if (root.tray.controlCenterOpen)
+        function onPopupOpenChanged() {
+            if (root.tray.popupOpen)
                 root.showDrawer()
             else
                 root.hideDrawer()
@@ -76,7 +76,7 @@ PopupWindow {
         duration: 120
         easing.type: Easing.InCubic
         onFinished: {
-            if (!root.tray.controlCenterOpen)
+            if (!root.tray.popupOpen)
                 root.visible = false
         }
     }
@@ -84,7 +84,7 @@ PopupWindow {
     onVisibleChanged: {
         if (!visible) {
             selectedPowerAction = null
-            root.tray.controlCenterOpen = false
+            root.tray.popupOpen = false
         }
     }
 
@@ -106,7 +106,7 @@ PopupWindow {
             if (root.selectedPowerAction)
                 root.selectedPowerAction = null
             else
-                root.tray.controlCenterOpen = false
+                root.tray.popupOpen = false
             event.accepted = true
         }
 
@@ -509,7 +509,7 @@ PopupWindow {
                         onClicked: {
                             Quickshell.execDetached(root.selectedPowerAction.command)
                             root.selectedPowerAction = null
-                            root.tray.controlCenterOpen = false
+                            root.tray.popupOpen = false
                         }
                     }
                 }

@@ -5,7 +5,7 @@ Item {
     id: root
 
     required property Item anchorItem
-    property bool open: false
+    property bool popupOpen: false
     property date displayedMonth: new Date(clock.date.getFullYear(), clock.date.getMonth(), 1)
 
     readonly property int firstDayOffset: (displayedMonth.getDay() + 6) % 7
@@ -37,7 +37,7 @@ Item {
 
     PopupWindow {
         id: popup
-        visible: root.open
+        visible: root.popupOpen
         implicitWidth: 330
         implicitHeight: 302
         color: "transparent"
@@ -52,7 +52,7 @@ Item {
 
         onVisibleChanged: {
             if (!visible)
-                root.open = false
+                root.popupOpen = false
         }
 
         Rectangle {
@@ -64,7 +64,7 @@ Item {
             focus: true
 
             Keys.onEscapePressed: event => {
-                root.open = false
+                root.popupOpen = false
                 event.accepted = true
             }
 

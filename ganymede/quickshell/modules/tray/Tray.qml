@@ -13,7 +13,7 @@ Item {
     property var manuallyHiddenIds: []
     property var itemOrder: []
     readonly property bool hasHiddenItems: SystemTray.items.values.some(item => isHidden(item))
-    property bool controlCenterOpen: false
+    property bool popupOpen: false
 
     implicitWidth: layout.implicitWidth
     implicitHeight: layout.implicitHeight
@@ -251,7 +251,7 @@ Item {
                 id: overflowMouse
                 anchors.fill: parent
                 hoverEnabled: true
-                onClicked: root.controlCenterOpen = !root.controlCenterOpen
+                onClicked: root.popupOpen = !root.popupOpen
             }
         }
     }

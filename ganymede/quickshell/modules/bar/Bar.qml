@@ -13,6 +13,18 @@ Scope {
 
     readonly property string time: Qt.formatDateTime(clock.date, "HH:mm")
     readonly property string date: Qt.formatDateTime(clock.date, "dd.MM.yyyy")
+    property var activePopupOwner: null
+
+    function updatePopupOwner(owner, isOpen) {
+        if (isOpen) {
+            if (activePopupOwner && activePopupOwner !== owner)
+                activePopupOwner.popupOpen = false
+
+            activePopupOwner = owner
+        } else if (activePopupOwner === owner) {
+            activePopupOwner = null
+        }
+    }
 
     WorkspaceService {
         id: workspaces
@@ -51,10 +63,11 @@ Scope {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
-                        calendar.open = false
+                        calendar.popupOpen = false
                         budsLink.popupOpen = false
                         volume.popupOpen = false
-                        tray.controlCenterOpen = false
+                        network.popupOpen = false
+                        tray.popupOpen = false
                     }
                 }
 
@@ -106,13 +119,14 @@ Scope {
                         id: clockMouse
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: calendar.open = !calendar.open
+                        onClicked: calendar.popupOpen = !calendar.popupOpen
                     }
                 }
 
                 Calendar {
                     id: calendar
                     anchorItem: clockButton
+                    onPopupOpenChanged: root.updatePopupOwner(calendar, popupOpen)
                 }
 
                 Row {
@@ -123,18 +137,24 @@ Scope {
 
                     BudsLink {
                         id: budsLink
+                        onPopupOpenChanged: root.updatePopupOwner(budsLink, popupOpen)
                     }
 
                     Volume {
                         id: volume
+                        onPopupOpenChanged: root.updatePopupOwner(volume, popupOpen)
                     }
 
-                    Network { }
+                    Network {
+                        id: network
+                        onPopupOpenChanged: root.updatePopupOwner(network, popupOpen)
+                    }
 
                     Tray {
                         id: tray
                         panelWindow: panel
                         notificationServer: notifications.server
+                        onPopupOpenChanged: root.updatePopupOwner(tray, popupOpen)
                         // Add tray IDs here to move active applications into
                         // the overflow drawer, for example: ["steam", "discord"].
                         hiddenItemIds: [
