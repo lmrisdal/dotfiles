@@ -9,6 +9,7 @@ Item {
 
     required property var panelWindow
     required property var notificationServer
+    required property bool doNotDisturb
     property var hiddenItemIds: []
     property var manuallyHiddenIds: []
     property var itemOrder: []
@@ -260,5 +261,6 @@ Item {
         anchorItem: overflowButton
         tray: root
         notificationServer: root.notificationServer
+        doNotDisturb: root.doNotDisturb
     }
 }

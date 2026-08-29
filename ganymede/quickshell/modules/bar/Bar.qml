@@ -154,6 +154,7 @@ Scope {
                         id: tray
                         panelWindow: panel
                         notificationServer: notifications.server
+                        doNotDisturb: notifications.doNotDisturb
                         onPopupOpenChanged: root.updatePopupOwner(tray, popupOpen)
                         // Add tray IDs here to move active applications into
                         // the overflow drawer, for example: ["steam", "discord"].

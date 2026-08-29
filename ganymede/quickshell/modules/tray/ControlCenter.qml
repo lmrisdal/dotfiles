@@ -9,11 +9,17 @@ PopupWindow {
     required property var anchorItem
     required property var tray
     required property var notificationServer
+    required property bool doNotDisturb
     property real drawerProgress: 0
     property var selectedPowerAction: null
     readonly property int drawerHeight: selectedPowerAction
         ? 190
         : Math.min(implicitHeight, contentColumn.implicitHeight + 28)
+
+    function historyNotifications() {
+        return notificationServer.trackedNotifications.values
+            .filter(notification => !notification.transient)
+    }
 
     visible: false
     implicitWidth: 380
@@ -126,8 +132,8 @@ PopupWindow {
                 Text {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Notifications"
-                    color: "#a6adc8"
+                    text: root.doNotDisturb ? "Notifications · Do Not Disturb" : "Notifications"
+                    color: root.doNotDisturb ? "#f9e2af" : "#a6adc8"
                     font.pixelSize: 12
                     font.bold: true
                 }
@@ -136,7 +142,7 @@ PopupWindow {
                     id: clearButton
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: root.notificationServer.trackedNotifications.values.length > 0
+                    visible: root.historyNotifications().length > 0
                     text: "Clear all"
                     color: clearMouse.containsMouse ? "#cdd6f4" : "#89b4fa"
                     font.pixelSize: 12
@@ -146,7 +152,7 @@ PopupWindow {
                         anchors.fill: parent
                         hoverEnabled: true
                         onClicked: {
-                            const notifications = root.notificationServer.trackedNotifications.values.slice()
+                            const notifications = root.historyNotifications()
                             notifications.forEach(notification => notification.dismiss())
                         }
                     }
@@ -162,7 +168,7 @@ PopupWindow {
                     clip: true
                     spacing: 6
                     model: ScriptModel {
-                        values: root.notificationServer.trackedNotifications.values.slice().reverse()
+                        values: root.historyNotifications().slice().reverse()
                         objectProp: "id"
                         comparisonMode: ObjectComparison.Identity
                     }
@@ -226,7 +232,7 @@ PopupWindow {
 
                 Text {
                     anchors.fill: parent
-                    visible: root.notificationServer.trackedNotifications.values.length === 0
+                    visible: root.historyNotifications().length === 0
                     text: "No notifications"
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter

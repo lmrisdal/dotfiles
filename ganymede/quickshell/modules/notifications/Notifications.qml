@@ -1,21 +1,66 @@
 import Quickshell
 import Quickshell.Services.Notifications
+import Quickshell.Wayland._ToplevelManagement
 import Quickshell.Widgets
 import QtQuick
+import org.kde.notificationmanager as KDE
 
 Scope {
     id: root
 
     property var toastNotifications: []
     property alias server: notificationServer
+    readonly property bool doNotDisturb: notificationSettings.notificationsInhibitedByApplication
+        || notificationSettings.notificationsInhibitedUntil > dndClock.date
+        || (notificationSettings.inhibitNotificationsWhenFullscreen
+            && ToplevelManager.activeToplevel !== null
+            && ToplevelManager.activeToplevel.fullscreen)
+        || (notificationSettings.inhibitNotificationsWhenScreensMirrored
+            && notificationSettings.screensMirrored)
+
+    function shouldShowToast(notification) {
+        return !doNotDisturb
+            || (notification.urgency === NotificationUrgency.Critical
+                && notificationSettings.criticalPopupsInDoNotDisturbMode)
+    }
 
     function showToast(notification) {
         const withoutPrevious = toastNotifications.filter(item => item.id !== notification.id)
-        toastNotifications = [notification].concat(withoutPrevious).slice(0, 3)
+        const updatedNotifications = [notification].concat(withoutPrevious)
+        const removedNotifications = updatedNotifications.slice(3)
+        toastNotifications = updatedNotifications.slice(0, 3)
+
+        removedNotifications.forEach(item => {
+            if (item.transient && item.tracked)
+                item.expire()
+        })
     }
 
     function removeToast(notificationId) {
         toastNotifications = toastNotifications.filter(item => item.id !== notificationId)
+    }
+
+    function clearToasts() {
+        const notifications = toastNotifications.slice()
+        toastNotifications = []
+        notifications.forEach(notification => {
+            if (notification.transient && notification.tracked)
+                notification.expire()
+        })
+    }
+
+    onDoNotDisturbChanged: {
+        if (doNotDisturb)
+            clearToasts()
+    }
+
+    KDE.Settings {
+        id: notificationSettings
+    }
+
+    SystemClock {
+        id: dndClock
+        precision: SystemClock.Seconds
     }
 
     NotificationServer {
@@ -24,8 +69,10 @@ Scope {
         persistenceSupported: true
 
         onNotification: notification => {
-            notification.tracked = !notification.transient
-            root.showToast(notification)
+            const showToast = root.shouldShowToast(notification)
+            notification.tracked = !notification.transient || showToast
+            if (showToast)
+                root.showToast(notification)
         }
     }
 
@@ -56,7 +103,10 @@ Scope {
                 }
 
                 delegate: Rectangle {
+                    id: toastDelegate
+
                     required property var modelData
+                    readonly property int notificationId: modelData.id
                     width: toastColumn.width
                     height: toastContent.implicitHeight + 20
                     radius: 8
@@ -65,11 +115,25 @@ Scope {
                     border.width: 1
 
                     Timer {
-                        running: true
-                        interval: modelData.expireTimeout > 0
-                            ? Math.max(3000, modelData.expireTimeout * 1000)
-                            : 5000
-                        onTriggered: root.removeToast(modelData.id)
+                        readonly property int requestedInterval: toastDelegate.modelData.expireTimeout < 0
+                            ? notificationSettings.popupTimeout
+                            : toastDelegate.modelData.expireTimeout
+                        running: requestedInterval > 0
+                        interval: Math.max(3000, requestedInterval)
+                        onTriggered: {
+                            if (toastDelegate.modelData.transient)
+                                toastDelegate.modelData.expire()
+                            else
+                                root.removeToast(toastDelegate.notificationId)
+                        }
+                    }
+
+                    Connections {
+                        target: toastDelegate.modelData
+
+                        function onClosed() {
+                            root.removeToast(toastDelegate.notificationId)
+                        }
                     }
 
                     Column {
@@ -105,8 +169,10 @@ Scope {
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {
-                            root.removeToast(modelData.id)
-                            modelData.dismiss()
+                            const notification = toastDelegate.modelData
+                            const notificationId = toastDelegate.notificationId
+                            notification.dismiss()
+                            root.removeToast(notificationId)
                         }
                     }
                 }
