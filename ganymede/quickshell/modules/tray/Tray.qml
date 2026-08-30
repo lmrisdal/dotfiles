@@ -7,7 +7,7 @@ import QtQuick
 Item {
     id: root
 
-    required property Item overflowTarget
+    property Item overflowTarget: null
     property var hiddenItemIds: []
     property var manuallyHiddenIds: []
     property var itemOrder: []
@@ -193,7 +193,8 @@ Item {
         }
 
         onReleased: mouse => {
-            if (didDrag && !hidden && root.pointerIsOver(trayIcon, mouse.x, mouse.y, root.overflowTarget))
+            if (didDrag && !hidden && root.overflowTarget
+                    && root.pointerIsOver(trayIcon, mouse.x, mouse.y, root.overflowTarget))
                 root.setManuallyHidden(trayItem.id, true)
             else if (didDrag && hidden && showTarget
                      && root.pointerIsOver(trayIcon, mouse.x, mouse.y, showTarget))

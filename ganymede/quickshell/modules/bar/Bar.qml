@@ -1,9 +1,10 @@
 import Quickshell
+import Quickshell.Io
 import QtQuick
 import "../appmenu"
 import "../audio"
-import "../calendar"
 import "../budslink"
+import "../clock"
 import "../controlcenter"
 import "../media"
 import "../network"
@@ -14,9 +15,48 @@ import "../workspaces"
 Scope {
     id: root
 
-    readonly property string time: Qt.formatDateTime(clock.date, "ddd dd MMM | HH:mm")
-    // readonly property string date: Qt.formatDateTime(clock.date, "dd.MM.yyyy")
+    readonly property var knownItems: [
+        "workspace",
+        "appmenu",
+        "clock",
+        "budslink",
+        "media",
+        "tray",
+        "network",
+        "audio",
+        "control_center"
+    ]
+    readonly property var configuredLayout: normalizedLayout(
+        layoutConfig.left,
+        layoutConfig.middle,
+        layoutConfig.right
+    )
     property var activePopupOwner: null
+
+    function normalizedLayout(left, middle, right) {
+        const result = { left: [], middle: [], right: [] }
+        const seen = []
+
+        for (const section of ["left", "middle", "right"]) {
+            const configuredItems = section === "left" ? left : section === "middle" ? middle : right
+            for (const itemName of configuredItems) {
+                if (!knownItems.includes(itemName)) {
+                    console.warn(`Ignoring unknown bar item: ${itemName}`)
+                    continue
+                }
+
+                if (seen.includes(itemName)) {
+                    console.warn(`Ignoring duplicate bar item: ${itemName}`)
+                    continue
+                }
+
+                seen.push(itemName)
+                result[section].push(itemName)
+            }
+        }
+
+        return result
+    }
 
     function updatePopupOwner(owner, isOpen) {
         if (isOpen) {
@@ -29,13 +69,28 @@ Scope {
         }
     }
 
-    WorkspaceService {
-        id: workspaces
+    function closeActivePopup() {
+        if (activePopupOwner)
+            activePopupOwner.popupOpen = false
     }
 
-    SystemClock {
-        id: clock
-        precision: SystemClock.Minutes
+    FileView {
+        path: Qt.resolvedUrl("../../bar.json")
+        blockLoading: true
+        watchChanges: true
+        onFileChanged: reload()
+
+        JsonAdapter {
+            id: layoutConfig
+
+            property list<string> left: ["workspace", "appmenu"]
+            property list<string> middle: ["clock"]
+            property list<string> right: ["media", "tray", "network", "audio", "control_center"]
+        }
+    }
+
+    WorkspaceService {
+        id: workspaces
     }
 
     Notifications {
@@ -47,7 +102,10 @@ Scope {
 
         PanelWindow {
             id: panel
+
             required property var modelData
+            property var itemRegistry: ({})
+
             screen: modelData
 
             anchors {
@@ -60,140 +118,152 @@ Scope {
             color: "transparent"
 
             Rectangle {
+                id: barSurface
+
                 anchors.fill: parent
                 color: "transparent"
 
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
-                        calendar.popupOpen = false
-                        budsLink.popupOpen = false
-                        volume.popupOpen = false
-                        network.popupOpen = false
-                        mediaControls.popupOpen = false
-                        controlCenter.popupOpen = false
-                        workspace.popupOpen = false
+                function componentFor(itemName) {
+                    const components = {
+                        workspace: workspaceComponent,
+                        appmenu: appMenuComponent,
+                        clock: clockComponent,
+                        budslink: budsLinkComponent,
+                        media: mediaComponent,
+                        tray: trayComponent,
+                        network: networkComponent,
+                        audio: audioComponent,
+                        control_center: controlCenterComponent
                     }
+                    return components[itemName] || null
                 }
 
-                Row {
-                    id: leftControls
+                function registerItem(itemName, item) {
+                    const updatedRegistry = Object.assign({}, panel.itemRegistry)
+                    updatedRegistry[itemName] = item
+                    panel.itemRegistry = updatedRegistry
+                }
+
+                function unregisterItem(itemName, item) {
+                    if (panel.itemRegistry[itemName] !== item)
+                        return
+
+                    const updatedRegistry = Object.assign({}, panel.itemRegistry)
+                    delete updatedRegistry[itemName]
+                    panel.itemRegistry = updatedRegistry
+                }
+
+                function itemFor(itemName) {
+                    return panel.itemRegistry[itemName] || null
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: root.closeActivePopup()
+                }
+
+                BarSection {
                     anchors.left: parent.left
                     anchors.leftMargin: 14
                     anchors.verticalCenter: parent.verticalCenter
-                    height: parent.height
                     spacing: 8
-
-                    Workspace {
-                        id: workspace
-                        height: leftControls.height
-                        desktopService: workspaces
-                        onPopupOpenChanged: root.updatePopupOwner(workspace, popupOpen)
-                    }
-
-                    AppMenu {
-                        id: appMenu
-                        height: leftControls.height
-                    }
+                    itemNames: root.configuredLayout.left
+                    barContext: barSurface
                 }
 
-                Calendar {
-                    id: calendar
-                    anchorItem: clockButton
-                    onPopupOpenChanged: root.updatePopupOwner(calendar, popupOpen)
-                }
-
-                Rectangle {
-                    id: clockButton
+                BarSection {
                     anchors.centerIn: parent
-                    width: clockContent.implicitWidth + 24
-                    height: parent.height
-                    color: "transparent"
-
-                    Rectangle {
-                        anchors.fill: parent
-                        anchors.margins: 4
-                        radius: height / 2
-                        color: clockMouse.pressed || calendar.popupOpen ? "#585b70" : "transparent"
-                    }
-
-                    Column {
-                        id: clockContent
-                        anchors.centerIn: parent
-                        spacing: -3
-
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: root.time
-                            color: "#cdd6f4"
-                            font.pixelSize: 14
-                            font.bold: true
-                        }
-
-                        // Text {
-                        //     anchors.horizontalCenter: parent.horizontalCenter
-                        //     text: root.date
-                        //     color: "#a6adc8"
-                        //     font.pixelSize: 12
-                        //     font.bold: true
-                        // }
-                    }
-
-                    MouseArea {
-                        id: clockMouse
-                        anchors.fill: parent
-                        onClicked: calendar.popupOpen = !calendar.popupOpen
-                    }
+                    itemNames: root.configuredLayout.middle
+                    barContext: barSurface
                 }
 
-                Row {
-                    id: rightControls
+                BarSection {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    height: parent.height
-                    spacing: 0
+                    itemNames: root.configuredLayout.right
+                    barContext: barSurface
+                }
+
+                Component {
+                    id: workspaceComponent
+
+                    Workspace {
+                        id: workspaceItem
+                        desktopService: workspaces
+                        onPopupOpenChanged: root.updatePopupOwner(workspaceItem, popupOpen)
+                    }
+                }
+
+                Component {
+                    id: appMenuComponent
+
+                    AppMenu { }
+                }
+
+                Component {
+                    id: clockComponent
+
+                    Clock {
+                        id: clockItem
+                        onPopupOpenChanged: root.updatePopupOwner(clockItem, popupOpen)
+                    }
+                }
+
+                Component {
+                    id: budsLinkComponent
 
                     BudsLink {
-                        id: budsLink
-                        anchors.verticalCenter: parent.verticalCenter
-                        onPopupOpenChanged: root.updatePopupOwner(budsLink, popupOpen)
+                        id: budsLinkItem
+                        onPopupOpenChanged: root.updatePopupOwner(budsLinkItem, popupOpen)
                     }
+                }
+
+                Component {
+                    id: mediaComponent
 
                     MediaControls {
-                        id: mediaControls
-                        height: parent.height
-                        onPopupOpenChanged: root.updatePopupOwner(mediaControls, popupOpen)
+                        id: mediaItem
+                        onPopupOpenChanged: root.updatePopupOwner(mediaItem, popupOpen)
                     }
+                }
+
+                Component {
+                    id: trayComponent
 
                     Tray {
-                        id: tray
-                        height: parent.height
-                        overflowTarget: controlCenter
-                        // Add tray IDs here to move active applications into
-                        // the overflow drawer, for example: ["steam", "discord"].
+                        overflowTarget: barSurface.itemFor("control_center")
                         hiddenItemIds: [
                         ]
                     }
+                }
 
-                    Volume {
-                        id: volume
-                        anchors.verticalCenter: parent.verticalCenter
-                        onPopupOpenChanged: root.updatePopupOwner(volume, popupOpen)
-                    }
+                Component {
+                    id: networkComponent
 
                     Network {
-                        id: network
-                        anchors.verticalCenter: parent.verticalCenter
-                        onPopupOpenChanged: root.updatePopupOwner(network, popupOpen)
+                        id: networkItem
+                        onPopupOpenChanged: root.updatePopupOwner(networkItem, popupOpen)
                     }
+                }
+
+                Component {
+                    id: audioComponent
+
+                    Volume {
+                        id: audioItem
+                        onPopupOpenChanged: root.updatePopupOwner(audioItem, popupOpen)
+                    }
+                }
+
+                Component {
+                    id: controlCenterComponent
 
                     ControlCenter {
-                        id: controlCenter
-                        height: parent.height
-                        tray: tray
+                        id: controlCenterItem
+                        tray: barSurface.itemFor("tray")
                         notificationServer: notifications.server
                         doNotDisturb: notifications.doNotDisturb
-                        onPopupOpenChanged: root.updatePopupOwner(controlCenter, popupOpen)
+                        onPopupOpenChanged: root.updatePopupOwner(controlCenterItem, popupOpen)
                     }
                 }
             }

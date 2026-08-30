@@ -7,7 +7,7 @@ import Qt5Compat.GraphicalEffects
 Item {
     id: root
 
-    required property var tray
+    property var tray: null
     required property var notificationServer
     required property bool doNotDisturb
     property bool popupOpen: false
@@ -324,7 +324,7 @@ Item {
     
                         Repeater {
                             model: ScriptModel {
-                                values: root.tray.orderedItems(true)
+                            values: root.tray ? root.tray.orderedItems(true) : []
                                 objectProp: "id"
                                 comparisonMode: ObjectComparison.Identity
                             }
@@ -336,7 +336,7 @@ Item {
                                 property real pressX: 0
                                 property real pressY: 0
     
-                                visible: root.tray.isHidden(modelData)
+                            visible: root.tray && root.tray.isHidden(modelData)
                                 width: 22
                                 height: 22
                                 hoverEnabled: true
@@ -426,7 +426,7 @@ Item {
     
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: !root.tray.hasHiddenItems
+                    visible: !root.tray || !root.tray.hasHiddenItems
                         text: "No hidden tray icons"
                         color: "#6c7086"
                         font.pixelSize: 13
