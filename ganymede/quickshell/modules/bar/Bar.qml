@@ -4,6 +4,7 @@ import "../appmenu"
 import "../audio"
 import "../calendar"
 import "../budslink"
+import "../controlcenter"
 import "../media"
 import "../network"
 import "../notifications"
@@ -70,7 +71,7 @@ Scope {
                         volume.popupOpen = false
                         network.popupOpen = false
                         mediaControls.popupOpen = false
-                        tray.popupOpen = false
+                        controlCenter.popupOpen = false
                         workspace.popupOpen = false
                     }
                 }
@@ -167,28 +168,32 @@ Scope {
                     Tray {
                         id: tray
                         height: parent.height
-                        panelWindow: panel
-                        notificationServer: notifications.server
-                        doNotDisturb: notifications.doNotDisturb
-                        onPopupOpenChanged: root.updatePopupOwner(tray, popupOpen)
+                        overflowTarget: controlCenter
                         // Add tray IDs here to move active applications into
                         // the overflow drawer, for example: ["steam", "discord"].
                         hiddenItemIds: [
                         ]
+                    }
 
-                        Volume {
-                            id: volume
-                            parent: tray.trailingControls
-                            anchors.verticalCenter: parent.verticalCenter
-                            onPopupOpenChanged: root.updatePopupOwner(volume, popupOpen)
-                        }
+                    Volume {
+                        id: volume
+                        anchors.verticalCenter: parent.verticalCenter
+                        onPopupOpenChanged: root.updatePopupOwner(volume, popupOpen)
+                    }
 
-                        Network {
-                            id: network
-                            parent: tray.trailingControls
-                            anchors.verticalCenter: parent.verticalCenter
-                            onPopupOpenChanged: root.updatePopupOwner(network, popupOpen)
-                        }
+                    Network {
+                        id: network
+                        anchors.verticalCenter: parent.verticalCenter
+                        onPopupOpenChanged: root.updatePopupOwner(network, popupOpen)
+                    }
+
+                    ControlCenter {
+                        id: controlCenter
+                        height: parent.height
+                        tray: tray
+                        notificationServer: notifications.server
+                        doNotDisturb: notifications.doNotDisturb
+                        onPopupOpenChanged: root.updatePopupOwner(controlCenter, popupOpen)
                     }
                 }
             }

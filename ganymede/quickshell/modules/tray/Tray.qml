@@ -3,20 +3,15 @@ import Quickshell.Io
 import Quickshell.Services.SystemTray
 import Quickshell.Widgets
 import QtQuick
-import Qt5Compat.GraphicalEffects
 
 Item {
     id: root
 
-    required property var panelWindow
-    required property var notificationServer
-    required property bool doNotDisturb
+    required property Item overflowTarget
     property var hiddenItemIds: []
     property var manuallyHiddenIds: []
     property var itemOrder: []
     readonly property bool hasHiddenItems: SystemTray.items.values.some(item => isHidden(item))
-    property bool popupOpen: false
-    property alias trailingControls: trailingControls
 
     implicitWidth: layout.implicitWidth
     implicitHeight: layout.implicitHeight
@@ -198,7 +193,7 @@ Item {
         }
 
         onReleased: mouse => {
-            if (didDrag && !hidden && root.pointerIsOver(trayIcon, mouse.x, mouse.y, overflowButton))
+            if (didDrag && !hidden && root.pointerIsOver(trayIcon, mouse.x, mouse.y, root.overflowTarget))
                 root.setManuallyHidden(trayItem.id, true)
             else if (didDrag && hidden && showTarget
                      && root.pointerIsOver(trayIcon, mouse.x, mouse.y, showTarget))
@@ -248,53 +243,5 @@ Item {
                 trayItem: modelData
             }
         }
-
-        Row {
-            id: trailingControls
-            height: parent.height
-            spacing: 0
-        }
-
-        Rectangle {
-            id: overflowButton
-            width: 40
-            height: parent.height
-            color: "transparent"
-
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: 5
-                radius: height / 2
-                color: overflowMouse.pressed || root.popupOpen ? "#585b70" : "transparent"
-            }
-
-            IconImage {
-                id: controlCenterIcon
-                anchors.centerIn: parent
-                width: 22
-                height: 22
-                source: Quickshell.iconPath("configure")
-                visible: false
-            }
-
-            ColorOverlay {
-                anchors.fill: controlCenterIcon
-                source: controlCenterIcon
-                color: "#cdd6f4"
-            }
-
-            MouseArea {
-                id: overflowMouse
-                anchors.fill: parent
-                onClicked: root.popupOpen = !root.popupOpen
-            }
-        }
-    }
-
-    ControlCenter {
-        anchorItem: overflowButton
-        tray: root
-        notificationServer: root.notificationServer
-        doNotDisturb: root.doNotDisturb
     }
 }
