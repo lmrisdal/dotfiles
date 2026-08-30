@@ -24,6 +24,30 @@ Scope {
         ])
     }
 
+    function addDesktop() {
+        Quickshell.execDetached([
+            "qdbus6",
+            "org.kde.KWin",
+            "/VirtualDesktopManager",
+            "org.kde.KWin.VirtualDesktopManager.createDesktop",
+            desktops.length.toString(),
+            "Desktop " + (desktops.length + 1),
+        ])
+    }
+
+    function removeDesktop(desktopId) {
+        if (desktops.length <= 1)
+            return
+
+        Quickshell.execDetached([
+            "qdbus6",
+            "org.kde.KWin",
+            "/VirtualDesktopManager",
+            "org.kde.KWin.VirtualDesktopManager.removeDesktop",
+            desktopId,
+        ])
+    }
+
     Process {
         id: desktopQuery
         running: true

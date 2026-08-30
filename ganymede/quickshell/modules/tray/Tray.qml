@@ -3,6 +3,7 @@ import Quickshell.Io
 import Quickshell.Services.SystemTray
 import Quickshell.Widgets
 import QtQuick
+import Qt5Compat.GraphicalEffects
 
 Item {
     id: root
@@ -15,6 +16,7 @@ Item {
     property var itemOrder: []
     readonly property bool hasHiddenItems: SystemTray.items.values.some(item => isHidden(item))
     property bool popupOpen: false
+    property alias trailingControls: trailingControls
 
     implicitWidth: layout.implicitWidth
     implicitHeight: layout.implicitHeight
@@ -149,13 +151,26 @@ Item {
         property real pressX: 0
         property real pressY: 0
 
-        width: 22
-        height: 22
+        width: 30
+        height: 40
+        anchors.verticalCenter: parent.verticalCenter
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
 
-        IconImage {
+        Rectangle {
             anchors.fill: parent
+            anchors.leftMargin: 1
+            anchors.rightMargin: 1
+            anchors.topMargin: 8
+            anchors.bottomMargin: 8
+            radius: height / 2
+            color: trayIcon.pressed ? "#585b70" : "transparent"
+        }
+
+        IconImage {
+            anchors.centerIn: parent
+            width: 22
+            height: 22
             source: trayItem.icon
             opacity: trayIcon.didDrag ? 0.45 : 1
         }
@@ -216,7 +231,8 @@ Item {
 
     Row {
         id: layout
-        spacing: 8
+        anchors.fill: parent
+        spacing: 0
 
         Repeater {
             model: ScriptModel {
@@ -233,25 +249,43 @@ Item {
             }
         }
 
+        Row {
+            id: trailingControls
+            height: parent.height
+            spacing: 0
+        }
+
         Rectangle {
             id: overflowButton
-            width: 22
-            height: 22
-            radius: 4
-            color: overflowMouse.containsMouse ? "#313244" : "transparent"
+            width: 40
+            height: parent.height
+            color: "transparent"
 
-            Text {
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 5
+                radius: height / 2
+                color: overflowMouse.pressed || root.popupOpen ? "#585b70" : "transparent"
+            }
+
+            IconImage {
+                id: controlCenterIcon
                 anchors.centerIn: parent
-                anchors.verticalCenterOffset: -2
-                text: "⌄"
+                width: 22
+                height: 22
+                source: Quickshell.iconPath("configure")
+                visible: false
+            }
+
+            ColorOverlay {
+                anchors.fill: controlCenterIcon
+                source: controlCenterIcon
                 color: "#cdd6f4"
-                font.pixelSize: 18
             }
 
             MouseArea {
                 id: overflowMouse
                 anchors.fill: parent
-                hoverEnabled: true
                 onClicked: root.popupOpen = !root.popupOpen
             }
         }

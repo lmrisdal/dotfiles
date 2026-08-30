@@ -18,8 +18,8 @@ Item {
     readonly property var state: activeDevice ? activeDevice.state : ({})
     readonly property int battery: state.computedBatteryLevel ?? 0
 
-    implicitWidth: available ? batteryText.implicitWidth + 27 : 0
-    implicitHeight: 22
+    implicitWidth: available ? batteryText.implicitWidth + 39 : 0
+    implicitHeight: 40
     visible: available
 
     function iconUrl(iconName) {
@@ -153,13 +153,22 @@ Item {
     Rectangle {
         id: budsButton
         anchors.fill: parent
-        radius: 4
-        color: budsMouse.containsMouse ? "#313244" : "transparent"
+        color: "transparent"
+
+        Rectangle {
+            anchors.fill: parent
+            anchors.leftMargin: 3
+            anchors.rightMargin: 3
+            anchors.topMargin: 5
+            anchors.bottomMargin: 5
+            radius: height / 2
+            color: budsMouse.pressed || root.popupOpen ? "#585b70" : "transparent"
+        }
 
         SymbolicIcon {
             id: budsIcon
             anchors.left: parent.left
-            anchors.leftMargin: 3
+            anchors.leftMargin: 9
             anchors.verticalCenter: parent.verticalCenter
             width: 18
             height: 18
@@ -179,7 +188,6 @@ Item {
         MouseArea {
             id: budsMouse
             anchors.fill: parent
-            hoverEnabled: true
             onClicked: root.popupOpen = !root.popupOpen
         }
     }

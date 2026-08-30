@@ -1,4 +1,5 @@
 import Quickshell
+import Quickshell.Io
 import Quickshell.Networking
 import Quickshell.Widgets
 import QtQuick
@@ -10,11 +11,17 @@ Item {
     property bool popupOpen: false
     readonly property var wifiDevice: connectedDevice(DeviceType.Wifi)
     readonly property var wiredDevice: connectedDevice(DeviceType.Wired)
+    readonly property var activeDevice: wiredDevice || wifiDevice
     readonly property var wifiNetwork: wifiDevice
         ? wifiDevice.networks.values.find(network => network.connected)
         : null
     readonly property real signalStrength: wifiNetwork ? wifiNetwork.signalStrength : 0
     readonly property bool connected: wifiDevice !== null || wiredDevice !== null
+    property real previousReceivedBytes: -1
+    property real previousSentBytes: -1
+    property real previousStatsTime: 0
+    property string downloadRate: "0 B/s"
+    property string uploadRate: "0 B/s"
     readonly property string connectionStatus: {
         if (wiredDevice)
             return `Wired Ethernet: Connected to ${wiredDevice.network ? wiredDevice.network.name : "Wired connection"}`
@@ -36,36 +43,57 @@ Item {
         return "network-wireless-signal-excellent-symbolic"
     }
 
-    implicitWidth: 22
-    implicitHeight: 22
+    implicitWidth: 38
+    implicitHeight: 40
 
     function connectedDevice(type) {
         return Networking.devices.values.find(device => device.type === type && device.connected) || null
     }
 
-    function openSettings() {
-        Quickshell.execDetached(["kcmshell6", "kcm_networkmanagement"])
+    function formatRate(bytesPerSecond) {
+        const units = ["B/s", "KiB/s", "MiB/s", "GiB/s"]
+        let value = Math.max(0, bytesPerSecond)
+        let unitIndex = 0
+
+        while (value >= 1024 && unitIndex < units.length - 1) {
+            value /= 1024
+            unitIndex++
+        }
+
+        return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`
     }
 
-    function toggleAirplaneMode() {
-        Networking.wifiEnabled = !Networking.wifiEnabled
+    function refreshNetworkStats() {
+        if (activeDevice && !statsQuery.running)
+            statsQuery.running = true
     }
 
     Rectangle {
         id: networkButton
         anchors.fill: parent
-        radius: 4
-        color: networkMouse.containsMouse ? "#313244" : "transparent"
+        color: "transparent"
+
+        Rectangle {
+            anchors.fill: parent
+            anchors.leftMargin: 3
+            anchors.rightMargin: 3
+            anchors.topMargin: 5
+            anchors.bottomMargin: 5
+            radius: height / 2
+            color: networkMouse.pressed || root.popupOpen ? "#585b70" : "transparent"
+        }
 
         IconImage {
             id: networkIcon
-            anchors.fill: parent
+            anchors.centerIn: parent
+            width: 22
+            height: 22
             source: Quickshell.iconPath(root.iconName, "network-offline-symbolic")
             visible: false
         }
 
         ColorOverlay {
-            anchors.fill: parent
+            anchors.fill: networkIcon
             source: networkIcon
             color: root.connected ? "#cdd6f4" : "#6c7086"
             opacity: root.connected ? 1 : 0.7
@@ -74,16 +102,8 @@ Item {
         MouseArea {
             id: networkMouse
             anchors.fill: parent
-            hoverEnabled: true
-            acceptedButtons: Qt.LeftButton | Qt.MiddleButton
-            onContainsMouseChanged: root.popupOpen = containsMouse
-
-            onClicked: mouse => {
-                if (mouse.button === Qt.LeftButton)
-                    root.openSettings()
-                else if (mouse.button === Qt.MiddleButton)
-                    root.toggleAirplaneMode()
-            }
+            acceptedButtons: Qt.LeftButton
+            onClicked: root.popupOpen = !root.popupOpen
         }
     }
 
@@ -91,8 +111,9 @@ Item {
         id: networkPopup
         visible: root.popupOpen
         implicitWidth: 430
-        implicitHeight: 116
+        implicitHeight: popupContent.implicitHeight + 28
         color: "transparent"
+        grabFocus: true
 
         anchor {
             item: networkButton
@@ -101,43 +122,122 @@ Item {
             adjustment: PopupAdjustment.All
         }
 
+        onVisibleChanged: {
+            if (!visible)
+                root.popupOpen = false
+        }
+
         Rectangle {
             anchors.fill: parent
             radius: 8
             color: "#1e1e2e"
             border.color: "#313244"
             border.width: 1
+            focus: true
+
+            Keys.onEscapePressed: event => {
+                root.popupOpen = false
+                event.accepted = true
+            }
 
             Column {
-                anchors.fill: parent
-                anchors.margins: 16
+                id: popupContent
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: 14
                 spacing: 4
 
                 Text {
                     text: "Networks"
-                    color: "#cdd6f4"
-                    font.family: "monospace"
-                    font.pixelSize: 21
+                    color: "#a6adc8"
+                    font.pixelSize: 12
+                    font.bold: true
                 }
 
                 Text {
                     width: parent.width
                     text: root.connectionStatus
-                    color: "#bac2de"
+                    color: "#cdd6f4"
                     elide: Text.ElideRight
-                    font.family: "monospace"
-                    font.pixelSize: 16
+                    font.pixelSize: 13
+                }
+
+                Rectangle {
+                    width: parent.width
+                    height: 9
+                    color: "transparent"
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width
+                        height: 1
+                        color: "#45475a"
+                    }
                 }
 
                 Text {
-                    text: Networking.wifiEnabled
-                        ? "Middle-click to turn off Wi-Fi"
-                        : "Middle-click to turn on Wi-Fi"
-                    color: "#bac2de"
-                    font.family: "monospace"
-                    font.pixelSize: 16
+                    text: "Network statistics"
+                    color: "#a6adc8"
+                    font.pixelSize: 12
+                    font.bold: true
+                }
+
+                Text {
+                    text: `↓ ${root.downloadRate}    ↑ ${root.uploadRate}`
+                    color: "#cdd6f4"
+                    font.pixelSize: 13
                 }
             }
         }
+    }
+
+    Process {
+        id: statsQuery
+        command: ["cat", "/proc/net/dev"]
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (!root.activeDevice)
+                    return
+
+                const line = text.split("\n").find(entry => entry.trim().startsWith(`${root.activeDevice.name}:`))
+                if (!line)
+                    return
+
+                const values = line.split(":")[1].trim().split(/\s+/)
+                const receivedBytes = Number(values[0])
+                const sentBytes = Number(values[8])
+                const now = Date.now()
+
+                if (root.previousStatsTime > 0) {
+                    const elapsedSeconds = (now - root.previousStatsTime) / 1000
+                    root.downloadRate = root.formatRate((receivedBytes - root.previousReceivedBytes) / elapsedSeconds)
+                    root.uploadRate = root.formatRate((sentBytes - root.previousSentBytes) / elapsedSeconds)
+                }
+
+                root.previousReceivedBytes = receivedBytes
+                root.previousSentBytes = sentBytes
+                root.previousStatsTime = now
+            }
+        }
+    }
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: root.popupOpen
+        onRunningChanged: {
+            if (running)
+                root.refreshNetworkStats()
+            else {
+                root.previousReceivedBytes = -1
+                root.previousSentBytes = -1
+                root.previousStatsTime = 0
+                root.downloadRate = "0 B/s"
+                root.uploadRate = "0 B/s"
+            }
+        }
+        onTriggered: root.refreshNetworkStats()
     }
 }

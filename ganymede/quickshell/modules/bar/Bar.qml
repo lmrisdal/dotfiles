@@ -11,8 +11,8 @@ import "../workspaces"
 Scope {
     id: root
 
-    readonly property string time: Qt.formatDateTime(clock.date, "HH:mm")
-    readonly property string date: Qt.formatDateTime(clock.date, "dd.MM.yyyy")
+    readonly property string time: Qt.formatDateTime(clock.date, "ddd dd MMM | HH:mm")
+    // readonly property string date: Qt.formatDateTime(clock.date, "dd.MM.yyyy")
     property var activePopupOwner: null
 
     function updatePopupOwner(owner, isOpen) {
@@ -68,6 +68,7 @@ Scope {
                         volume.popupOpen = false
                         network.popupOpen = false
                         tray.popupOpen = false
+                        workspace.popupOpen = false
                     }
                 }
 
@@ -80,18 +81,32 @@ Scope {
                     spacing: 8
 
                     Workspace {
+                        id: workspace
                         height: leftControls.height
                         desktopService: workspaces
+                        onPopupOpenChanged: root.updatePopupOwner(workspace, popupOpen)
                     }
+                }
+
+                Calendar {
+                    id: calendar
+                    anchorItem: clockButton
+                    onPopupOpenChanged: root.updatePopupOwner(calendar, popupOpen)
                 }
 
                 Rectangle {
                     id: clockButton
                     anchors.centerIn: parent
-                    width: clockContent.implicitWidth + 16
+                    width: clockContent.implicitWidth + 24
                     height: parent.height
-                    radius: 4
-                    color: clockMouse.containsMouse ? "#313244" : "transparent"
+                    color: "transparent"
+
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: 4
+                        radius: height / 2
+                        color: clockMouse.pressed || calendar.popupOpen ? "#585b70" : "transparent"
+                    }
 
                     Column {
                         id: clockContent
@@ -106,52 +121,38 @@ Scope {
                             font.bold: true
                         }
 
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: root.date
-                            color: "#a6adc8"
-                            font.pixelSize: 12
-                            font.bold: true
-                        }
+                        // Text {
+                        //     anchors.horizontalCenter: parent.horizontalCenter
+                        //     text: root.date
+                        //     color: "#a6adc8"
+                        //     font.pixelSize: 12
+                        //     font.bold: true
+                        // }
                     }
 
                     MouseArea {
                         id: clockMouse
                         anchors.fill: parent
-                        hoverEnabled: true
                         onClicked: calendar.popupOpen = !calendar.popupOpen
                     }
                 }
 
-                Calendar {
-                    id: calendar
-                    anchorItem: clockButton
-                    onPopupOpenChanged: root.updatePopupOwner(calendar, popupOpen)
-                }
-
                 Row {
+                    id: rightControls
                     anchors.right: parent.right
-                    anchors.rightMargin: 14
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 12
+                    height: parent.height
+                    spacing: 0
 
                     BudsLink {
                         id: budsLink
+                        anchors.verticalCenter: parent.verticalCenter
                         onPopupOpenChanged: root.updatePopupOwner(budsLink, popupOpen)
-                    }
-
-                    Volume {
-                        id: volume
-                        onPopupOpenChanged: root.updatePopupOwner(volume, popupOpen)
-                    }
-
-                    Network {
-                        id: network
-                        onPopupOpenChanged: root.updatePopupOwner(network, popupOpen)
                     }
 
                     Tray {
                         id: tray
+                        height: parent.height
                         panelWindow: panel
                         notificationServer: notifications.server
                         doNotDisturb: notifications.doNotDisturb
@@ -160,6 +161,20 @@ Scope {
                         // the overflow drawer, for example: ["steam", "discord"].
                         hiddenItemIds: [
                         ]
+
+                        Volume {
+                            id: volume
+                            parent: tray.trailingControls
+                            anchors.verticalCenter: parent.verticalCenter
+                            onPopupOpenChanged: root.updatePopupOwner(volume, popupOpen)
+                        }
+
+                        Network {
+                            id: network
+                            parent: tray.trailingControls
+                            anchors.verticalCenter: parent.verticalCenter
+                            onPopupOpenChanged: root.updatePopupOwner(network, popupOpen)
+                        }
                     }
                 }
             }

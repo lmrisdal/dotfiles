@@ -3,7 +3,7 @@
 ## Project context
 
 - This directory is the live configuration: `~/.config/quickshell` is a symlink
-  to `/home/lars/Projects/quickshell`.
+  to `/home/lars/Projects/dotfiles/ganymede/quickshell`.
 - Target environment: KDE Plasma on Wayland, CachyOS/Arch, Quickshell 0.3.x.
 - Do not modify Plasma panels, Autostart, or other desktop settings unless the
   user explicitly asks. Keep the Plasma panel as a fallback while this shell is
@@ -25,6 +25,20 @@
   `#6c7086` for unavailable or disconnected icons, and `#313244` for hover
   surfaces. Tint system-theme icons explicitly instead of inheriting their
   arbitrary theme colors.
+- Give clicked bar controls a macOS-like inset pill using `#585b70`. Keep that
+  pill visible while the control's popup is open, not only while the pointer is
+  pressed, and use half the pill height as its radius.
+- Keep a control's hit target separate from its visible pressed/open surface.
+  The hit target may fill the bar height or reach a screen edge, but the pill
+  must remain inset on every side. In particular, the Control Center must stay
+  clickable from the top-right screen corner without its background touching
+  the top or right edge.
+- Give the clock pill generous horizontal padding: size its hit target to the
+  content width plus 24 pixels while keeping the visible pill inset by 4 pixels.
+- Keep visible tray icons at 22 pixels and pack their item containers tightly.
+  Tray pressed surfaces must be circles or, preferably, horizontal pills—never
+  vertical capsules. The current tray treatment uses 30-pixel-wide containers,
+  no row spacing, and a 28-by-24-pixel pressed pill.
 
 ## QML and Quickshell conventions
 
@@ -51,7 +65,7 @@
 - Validate every QML edit from this repository before handing it off:
 
   ```bash
-  timeout --signal=INT 3s quickshell --path /home/lars/Projects/quickshell
+  timeout --signal=INT 3s quickshell --path /home/lars/Projects/dotfiles/ganymede/quickshell
   ```
 
   Exit status `124` is expected because `timeout` stops the running shell. The

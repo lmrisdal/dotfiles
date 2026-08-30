@@ -26,8 +26,8 @@ Item {
         return "audio-volume-high-symbolic"
     }
 
-    implicitWidth: 22
-    implicitHeight: 22
+    implicitWidth: 38
+    implicitHeight: 40
 
     PwObjectTracker {
         objects: [root.sink, root.source].concat(Pipewire.nodes.values)
@@ -50,18 +50,29 @@ Item {
     Rectangle {
         id: volumeButton
         anchors.fill: parent
-        radius: 4
-        color: volumeMouse.containsMouse ? "#313244" : "transparent"
+        color: "transparent"
+
+        Rectangle {
+            anchors.fill: parent
+            anchors.leftMargin: 3
+            anchors.rightMargin: 3
+            anchors.topMargin: 5
+            anchors.bottomMargin: 5
+            radius: height / 2
+            color: volumeMouse.pressed || root.popupOpen ? "#585b70" : "transparent"
+        }
 
         IconImage {
             id: volumeIcon
-            anchors.fill: parent
+            anchors.centerIn: parent
+            width: 22
+            height: 22
             source: Quickshell.iconPath(root.iconName, "audio-volume-high-symbolic")
             visible: false
         }
 
         ColorOverlay {
-            anchors.fill: parent
+            anchors.fill: volumeIcon
             source: volumeIcon
             color: root.audio ? "#cdd6f4" : "#6c7086"
             opacity: root.audio ? 1 : 0.7
@@ -70,7 +81,6 @@ Item {
         MouseArea {
             id: volumeMouse
             anchors.fill: parent
-            hoverEnabled: true
             enabled: root.audio !== null
             acceptedButtons: Qt.LeftButton | Qt.MiddleButton
 
