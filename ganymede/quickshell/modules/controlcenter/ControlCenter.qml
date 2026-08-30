@@ -210,7 +210,10 @@ Item {
                         }
     
                         delegate: Rectangle {
+                            id: notificationDelegate
+
                             required property var modelData
+                            property bool expanded: false
                             width: notificationList.width
                             height: notificationContent.implicitHeight + 18
                             radius: 6
@@ -235,15 +238,35 @@ Item {
                                 }
     
                                 Text {
+                                    id: notificationBody
+
                                     width: parent.width
                                     visible: text.length > 0
                                     text: modelData.body
                                     color: "#a6adc8"
-                                    elide: Text.ElideRight
-                                    maximumLineCount: 2
+                                    elide: notificationDelegate.expanded ? Text.ElideNone : Text.ElideRight
+                                    maximumLineCount: notificationDelegate.expanded ? 100000 : 2
                                     wrapMode: Text.Wrap
                                     textFormat: Text.PlainText
                                     font.pixelSize: 12
+                                }
+
+                                Text {
+                                    id: expandButton
+
+                                    visible: notificationDelegate.expanded || notificationBody.truncated
+                                    text: notificationDelegate.expanded ? "Show less" : "Show more"
+                                    color: expandMouse.containsMouse ? "#cdd6f4" : "#89b4fa"
+                                    font.pixelSize: 11
+
+                                    MouseArea {
+                                        id: expandMouse
+
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: notificationDelegate.expanded = !notificationDelegate.expanded
+                                    }
                                 }
                             }
     
