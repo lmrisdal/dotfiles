@@ -1,8 +1,10 @@
 import Quickshell
 import QtQuick
+import "../appmenu"
 import "../audio"
 import "../calendar"
 import "../budslink"
+import "../media"
 import "../network"
 import "../notifications"
 import "../tray"
@@ -67,6 +69,7 @@ Scope {
                         budsLink.popupOpen = false
                         volume.popupOpen = false
                         network.popupOpen = false
+                        mediaControls.popupOpen = false
                         tray.popupOpen = false
                         workspace.popupOpen = false
                     }
@@ -85,6 +88,11 @@ Scope {
                         height: leftControls.height
                         desktopService: workspaces
                         onPopupOpenChanged: root.updatePopupOwner(workspace, popupOpen)
+                    }
+
+                    AppMenu {
+                        id: appMenu
+                        height: leftControls.height
                     }
                 }
 
@@ -148,6 +156,12 @@ Scope {
                         id: budsLink
                         anchors.verticalCenter: parent.verticalCenter
                         onPopupOpenChanged: root.updatePopupOwner(budsLink, popupOpen)
+                    }
+
+                    MediaControls {
+                        id: mediaControls
+                        height: parent.height
+                        onPopupOpenChanged: root.updatePopupOwner(mediaControls, popupOpen)
                     }
 
                     Tray {
