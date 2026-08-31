@@ -10,13 +10,16 @@ Item {
     property bool popupOpen: false
     property var selectedDesktop: null
     property int leftEdgeHitInset: 0
+    readonly property int horizontalPadding: 4
 
-    implicitWidth: desktopLayout.implicitWidth
+    implicitWidth: desktopLayout.implicitWidth + horizontalPadding * 2
     implicitHeight: desktopLayout.implicitHeight
+    width: implicitWidth
     visible: desktopService.desktops.length > 0
 
     Row {
         id: desktopLayout
+        anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
         spacing: 4
 
