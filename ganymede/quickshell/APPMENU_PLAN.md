@@ -163,6 +163,32 @@ if it:
 - can be rebuilt against normal Arch/CachyOS package updates with a documented
   command.
 
+### Spike outcome (2026-08-31)
+
+The local QML plugin approach is not reliable with Quickshell 0.3.1 and has
+been rejected. Quickshell serves configuration imports through its `qs:`
+virtual filesystem; a plugin beside a relative QML module therefore cannot
+resolve its shared library. Giving the `qmldir` an absolute library path makes
+Qt load it, but emits a startup warning and bakes the current checkout path into
+the build. That fails the no-warning and portable-live-configuration criteria.
+
+The companion-process fallback is the selected integration path. The spike in
+`native/appmenu` builds an `appmenu-helper` executable in the ignored build
+directory. The `AppMenuService` singleton launches it with `Quickshell.Io`,
+parses newline-delimited JSON state, and completes a bidirectional ready/ping/
+pong handshake. The application-name fallback remains independent of the
+helper, so a missing or stale binary cannot prevent the shell from loading.
+The build command is documented in `README.md`, requires no system install,
+and can be rerun after Qt or Plasma package upgrades.
+
+Active-task lookup remains inside Quickshell, which already has KWin's
+window-management permission; the QML singleton forwards the application name
+and menu service/object path to the helper. Plasma 6.7 bundles
+`libdbusmenuqt` as private static source rather than installing it as a
+development library. The finished helper therefore includes the importer from
+Plasma Workspace 6.7.4 with its upstream licensing notices and links Qt Core,
+DBus, Gui, and Widgets.
+
 ## Milestone 3: active menu discovery
 
 Implement the native model without opening menus yet.
@@ -192,6 +218,18 @@ development.
 Do not remove the Plasma fallback panel as part of this work. For testing menu
 registration, temporarily disabling only the Plasma global-menu applet may be
 necessary, but that is a manual user action outside this repository.
+
+### Milestone 3 outcome (2026-08-31)
+
+Active-task discovery remains in the `AppMenuService` QML singleton so it uses
+Quickshell's existing KWin window-management permission. The application name,
+application-menu service, and object path are forwarded to the helper whenever
+the relevant task roles or active-task context change. The helper also queues
+for `org.kde.kappmenuview` without replacing the Plasma applet and reports an
+explicit `owned`, `queued`, or `failed` registration state. It watches the
+active exporter, imports its DBusMenu recursively, and publishes visible action
+state as line-delimited JSON. With the helper owning the viewer name, KDED was
+verified to expose `com.canonical.AppMenu.Registrar` on the session bus.
 
 ### Acceptance checks
 
@@ -223,10 +261,18 @@ half the pill height. The visible surface must not touch the screen edge.
 At this stage, clicking an entry may log or expose the selected action index;
 menu display is delivered in milestone 5.
 
+### Milestone 4 outcome (2026-08-31)
+
+The bar now keeps the application identity label and renders the imported
+top-level actions in source order. Disabled and hidden entries, mnemonic
+markers, width clamping, hover surfaces, and the persistent selected pill are
+all handled by `AppMenu.qml`. `Bar.qml` calculates the available width against
+the centered section so a long menu cannot overlap it.
+
 ## Milestone 5: open and operate menus
 
 Use `DBusMenuImporter` to maintain the imported menu tree and open the selected
-top-level action's native `QMenu` below its QML control.
+top-level action below its QML control.
 
 ### Required behavior
 
@@ -249,6 +295,23 @@ If the native bridge presents a `QMenu`, keep popup lifecycle in the bridge and
 expose only state and commands to QML. Do not duplicate the complete menu tree
 in custom `PopupWindow` delegates unless native `QMenu` proves unusable.
 
+### Milestone 5 outcome (2026-08-31)
+
+A native `QMenu` was tested first. It could import the menu, but a window owned
+by the companion process cannot establish the Wayland transient-parent
+relationship needed to display reliably beneath a Quickshell bar window.
+Consequently, this milestone uses the documented fallback: the helper retains
+KDE's `DBusMenuImporter` and action objects, while `AppMenu.qml` renders their
+serialized tree in a `PopupWindow` owned by Quickshell.
+
+The popup opens on press, is constrained to its screen, retains bar selection,
+closes on Escape/outside press, switches top-level menus on hover, and supports
+nested menus, separators, icons, enabled state, check/radio state, shortcuts,
+and activation. Submenu preparation and action activation are sent back to the
+original exporter through the imported `QAction` objects. Live importer updates
+republish the tree, and active-task synchronization is deferred while a menu is
+being requested or is open so popup focus cannot replace the source menu.
+
 ## Milestone 6: keyboard, search, and multi-monitor polish
 
 Add parity features after pointer interaction is stable:
@@ -264,6 +327,21 @@ Add parity features after pointer interaction is stable:
   the screen containing the active task.
 - Confirm correct positioning with mixed scale factors and monitors arranged
   above or to the left of the primary screen.
+
+### Milestone 6 outcome (2026-08-31)
+
+The popup implements Left/Right top-level and submenu navigation, Up/Down
+selection, Enter activation, and Escape dismissal. The application menu stays
+visible on every configured screen, matching the original `allScreens` choice,
+and each screen owns its own anchored popup. Popup adjustment delegates edge
+and available-geometry clamping to Quickshell.
+
+Alt mnemonic activation and the optional searchable-action UI were not added:
+the former is conditional on a reliable compositor-level Alt state, and the
+latter was explicitly optional. Raw mnemonic text remains in the bridge model
+so mnemonic behavior can be added without changing the protocol. Mixed-scale
+and non-primary monitor placement still require validation on matching physical
+hardware; the implementation does not hard-code primary-screen coordinates.
 
 ## Test matrix
 
@@ -296,9 +374,9 @@ empty menus, action changes, and coordinate clamping where practical.
 - **D-Bus ownership:** the Plasma global-menu applet and Quickshell version
   cannot both be the active `org.kde.kappmenuview` owner without deliberate
   queuing/replacement behavior.
-- **Focus and grabs:** native `QMenu` interaction on Wayland has edge cases
-  around focus, transient parents, mouse grabs, and hover-switching. Port the
-  upstream workarounds deliberately rather than simplifying them away.
+- **Focus and grabs:** a companion-process `QMenu` cannot be parented to the
+  Quickshell surface on Wayland. The selected `PopupWindow` fallback keeps the
+  popup and its input grab in the Quickshell process.
 - **Licensing:** code adapted from the KDE applet must retain its SPDX and
   copyright notices and remain compatible with its GPL licensing.
 
@@ -306,6 +384,6 @@ empty menus, action changes, and coordinate clamping where practical.
 
 The feature is complete when the bar reliably identifies the active
 application, shows its exported top-level menu when available, opens and
-operates native menus with mouse and keyboard, behaves correctly across
+operates its imported menu with mouse and keyboard, behaves correctly across
 monitors and live reloads, and degrades to the application-name label for
 unsupported applications without affecting the rest of the bar.

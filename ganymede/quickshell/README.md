@@ -42,6 +42,26 @@ Available item names are `workspace`, `appmenu`, `clock`, `budslink`, `media`,
 `tray`, `network`, `audio`, and `control_center`. Each item can occur at most
 once. Unknown and duplicate names are ignored with a warning.
 
+## Build the application-menu helper
+
+The application-menu feature uses a small local Qt 6 companion process. Build
+it after cloning the dotfiles and again after Qt or Plasma upgrades:
+
+```bash
+cmake -S native/appmenu -B build/appmenu-native -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build/appmenu-native --parallel
+```
+
+The executable stays in the ignored `build/appmenu-native` directory and needs
+no system installation. The application-name fallback remains usable if the
+helper has not been built. Restart Quickshell after rebuilding so its running
+helper process uses the new executable; otherwise the next login will pick it
+up automatically.
+
+The helper vendors KDE's small DBusMenu importer from Plasma Workspace 6.7.4.
+Its provenance and license details are recorded in
+`native/appmenu/dbusmenuqt/README.md`.
+
 ## Useful commands
 
 ```bash

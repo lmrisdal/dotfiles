@@ -1,5 +1,5 @@
 {
-    "left": ["workspace", "appmenu"],
+    "left": ["workspace"],
     "middle": ["clock"],
     "right": ["media", "tray", "network", "audio", "control_center"]
 }

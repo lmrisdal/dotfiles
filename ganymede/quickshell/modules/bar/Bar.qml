@@ -172,6 +172,8 @@ Scope {
                 }
 
                 BarSection {
+                    id: middleControls
+
                     anchors.centerIn: parent
                     itemNames: root.configuredLayout.middle
                     barContext: barSurface
@@ -197,7 +199,18 @@ Scope {
                 Component {
                     id: appMenuComponent
 
-                    AppMenu { }
+                    AppMenu {
+                        id: appMenuItem
+                        screen: panel.screen
+                        maximumWidth: Math.max(
+                            0,
+                            panel.width / 2
+                                - middleControls.width / 2
+                                - 22
+                                - (barSurface.itemFor("workspace")?.width || 0)
+                        )
+                        onPopupOpenChanged: root.updatePopupOwner(appMenuItem, popupOpen)
+                    }
                 }
 
                 Component {
