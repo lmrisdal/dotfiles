@@ -7,6 +7,8 @@ import Qt5Compat.GraphicalEffects
 Item {
     id: root
 
+    signal popupStateRequested(bool open)
+
     property var devices: ({})
     property string selectedPath: ""
     property bool popupOpen: false
@@ -188,7 +190,7 @@ Item {
         MouseArea {
             id: budsMouse
             anchors.fill: parent
-            onClicked: root.popupOpen = !root.popupOpen
+            onClicked: root.popupStateRequested(!root.popupOpen)
         }
     }
 

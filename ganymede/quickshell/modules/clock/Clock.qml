@@ -1,14 +1,19 @@
 import Quickshell
 import QtQuick
+import "../bar"
 import "../calendar"
 
 Item {
     id: root
 
+    signal popupStateRequested(bool open)
+
     property alias popupOpen: calendar.popupOpen
+    property int leftEdgeHitInset: 0
+    property int rightEdgeHitInset: 0
     readonly property string time: Qt.formatDateTime(clock.date, "ddd dd MMM | HH:mm")
 
-    implicitWidth: clockContent.implicitWidth + 24
+    implicitWidth: clockButton.implicitWidth
     implicitHeight: 40
 
     SystemClock {
@@ -16,31 +21,15 @@ Item {
         precision: SystemClock.Minutes
     }
 
-    Rectangle {
+    BarTextButton {
+        id: clockButton
         anchors.fill: parent
-        color: "transparent"
-
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 4
-            radius: height / 2
-            color: clockMouse.pressed || root.popupOpen ? "#585b70" : "transparent"
-        }
-
-        Text {
-            id: clockContent
-            anchors.centerIn: parent
-            text: root.time
-            color: "#cdd6f4"
-            font.pixelSize: 14
-            font.bold: true
-        }
-
-        MouseArea {
-            id: clockMouse
-            anchors.fill: parent
-            onClicked: root.popupOpen = !root.popupOpen
-        }
+        text: root.time
+        horizontalContentPadding: 8
+        popupOpen: root.popupOpen
+        leftEdgeHitInset: root.leftEdgeHitInset
+        rightEdgeHitInset: root.rightEdgeHitInset
+        onClicked: root.popupStateRequested(!root.popupOpen)
     }
 
     Calendar {

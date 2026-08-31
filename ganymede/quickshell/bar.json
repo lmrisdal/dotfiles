@@ -1,5 +1,6 @@
 {
+    "itemSpacing": 5,
     "left": ["workspace", "appmenu"],
-    "middle": ["clock"],
-    "right": ["media", "tray", "network", "audio", "control_center"]
+    "middle": ["media"],
+    "right": ["tray", "network", "audio", "clock", "control_center"]
 }

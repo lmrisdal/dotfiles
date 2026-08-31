@@ -2,10 +2,12 @@ import Quickshell
 import Quickshell.Services.SystemTray
 import Quickshell.Widgets
 import QtQuick
-import Qt5Compat.GraphicalEffects
+import "../bar"
 
 Item {
     id: root
+
+    signal popupStateRequested(bool open)
 
     property var tray: null
     required property var notificationServer
@@ -13,11 +15,13 @@ Item {
     property bool popupOpen: false
     property real drawerProgress: 0
     property var selectedPowerAction: null
+    property int leftEdgeHitInset: 0
+    property int rightEdgeHitInset: 0
     readonly property int drawerHeight: selectedPowerAction
         ? 190
         : Math.min(520, contentColumn.implicitHeight + 28)
 
-    implicitWidth: 40
+    implicitWidth: 30
     implicitHeight: 40
 
     function historyNotifications() {
@@ -25,37 +29,13 @@ Item {
             .filter(notification => !notification.transient)
     }
 
-    Rectangle {
+    BarIconButton {
         anchors.fill: parent
-        color: "transparent"
-
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 5
-            radius: height / 2
-            color: controlCenterMouse.pressed || root.popupOpen ? "#585b70" : "transparent"
-        }
-
-        IconImage {
-            id: controlCenterIcon
-            anchors.centerIn: parent
-            width: 22
-            height: 22
-            source: Quickshell.iconPath("configure")
-            visible: false
-        }
-
-        ColorOverlay {
-            anchors.fill: controlCenterIcon
-            source: controlCenterIcon
-            color: "#cdd6f4"
-        }
-
-        MouseArea {
-            id: controlCenterMouse
-            anchors.fill: parent
-            onClicked: root.popupOpen = !root.popupOpen
-        }
+        iconSource: Quickshell.iconPath("configure")
+        popupOpen: root.popupOpen
+        leftEdgeHitInset: root.leftEdgeHitInset
+        rightEdgeHitInset: root.rightEdgeHitInset
+        onClicked: root.popupStateRequested(!root.popupOpen)
     }
 
     function showDrawer() {
@@ -324,7 +304,7 @@ Item {
     
                         Repeater {
                             model: ScriptModel {
-                            values: root.tray ? root.tray.orderedItems(true) : []
+                                values: root.tray ? root.tray.orderedItems(true) : []
                                 objectProp: "id"
                                 comparisonMode: ObjectComparison.Identity
                             }
@@ -332,11 +312,12 @@ Item {
                             delegate: MouseArea {
                                 id: controlCenterTrayIcon
                                 required property var modelData
+                                property var trayItem: modelData
                                 property bool didDrag: false
                                 property real pressX: 0
                                 property real pressY: 0
-    
-                            visible: root.tray && root.tray.isHidden(modelData)
+
+                                visible: root.tray && root.tray.isHidden(modelData)
                                 width: 22
                                 height: 22
                                 hoverEnabled: true
@@ -346,7 +327,18 @@ Item {
                                 IconImage {
                                     anchors.fill: parent
                                     source: modelData.icon
-                                    opacity: controlCenterTrayIcon.didDrag ? 0.45 : 1
+                                    opacity: root.tray && root.tray.dragActive
+                                        && root.tray.dragItem === modelData ? 0 : 1
+                                }
+
+                                Behavior on x {
+                                    enabled: root.tray && root.tray.dragActive
+                                    NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
+                                }
+
+                                Behavior on y {
+                                    enabled: root.tray && root.tray.dragActive
+                                    NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
                                 }
     
                                 onPressed: mouse => {
@@ -358,23 +350,37 @@ Item {
                                 onPositionChanged: mouse => {
                                     if (!pressed || !(pressedButtons & Qt.LeftButton))
                                         return
-    
+
+                                    if (!didDrag && !(mouse.modifiers & Qt.ControlModifier))
+                                        return
+
                                     const deltaX = mouse.x - pressX
                                     const deltaY = mouse.y - pressY
-                                    if (Math.abs(deltaX) < 5 || Math.abs(deltaX) <= Math.abs(deltaY))
+                                    if (!didDrag && Math.hypot(deltaX, deltaY) < root.tray.dragThreshold)
                                         return
-    
-                                    didDrag = true
-                                    root.tray.reorderAt(controlCenterTrayIcon, controlCenterTrayIcon.parent,
-                                                        controlCenterTrayIcon.x + mouse.x)
+
+                                    if (!didDrag) {
+                                        didDrag = true
+                                        root.tray.beginDrag(modelData, controlCenterTrayIcon,
+                                                            mouse.x, mouse.y, pressX, pressY, true,
+                                                            controlCenterTrayIcon.parent,
+                                                            showOnBarTarget)
+                                    } else {
+                                        root.tray.updateDrag(controlCenterTrayIcon, mouse.x, mouse.y)
+                                    }
                                 }
-    
+
                                 onReleased: mouse => {
-                                    if (didDrag && root.tray.pointerIsOver(controlCenterTrayIcon, mouse.x, mouse.y,
-                                                                          showOnBarTarget))
-                                        root.tray.setManuallyHidden(modelData.id, false)
-    
+                                    if (didDrag)
+                                        root.tray.finishDrag()
+
                                     Qt.callLater(() => didDrag = false)
+                                }
+
+                                onCanceled: {
+                                    if (didDrag)
+                                        root.tray.cancelDrag()
+                                    didDrag = false
                                 }
     
                                 function openMenu() {

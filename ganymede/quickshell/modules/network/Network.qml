@@ -1,12 +1,13 @@
 import Quickshell
 import Quickshell.Io
 import Quickshell.Networking
-import Quickshell.Widgets
 import QtQuick
-import Qt5Compat.GraphicalEffects
+import "../bar"
 
 Item {
     id: root
+
+    signal popupStateRequested(bool open)
 
     property bool popupOpen: false
     readonly property var wifiDevice: connectedDevice(DeviceType.Wifi)
@@ -43,7 +44,7 @@ Item {
         return "network-wireless-signal-excellent-symbolic"
     }
 
-    implicitWidth: 38
+    implicitWidth: 30
     implicitHeight: 40
 
     function connectedDevice(type) {
@@ -68,43 +69,14 @@ Item {
             statsQuery.running = true
     }
 
-    Rectangle {
+    BarIconButton {
         id: networkButton
         anchors.fill: parent
-        color: "transparent"
-
-        Rectangle {
-            anchors.fill: parent
-            anchors.leftMargin: 3
-            anchors.rightMargin: 3
-            anchors.topMargin: 5
-            anchors.bottomMargin: 5
-            radius: height / 2
-            color: networkMouse.pressed || root.popupOpen ? "#585b70" : "transparent"
-        }
-
-        IconImage {
-            id: networkIcon
-            anchors.centerIn: parent
-            width: 22
-            height: 22
-            source: Quickshell.iconPath(root.iconName, "network-offline-symbolic")
-            visible: false
-        }
-
-        ColorOverlay {
-            anchors.fill: networkIcon
-            source: networkIcon
-            color: root.connected ? "#cdd6f4" : "#6c7086"
-            opacity: root.connected ? 1 : 0.7
-        }
-
-        MouseArea {
-            id: networkMouse
-            anchors.fill: parent
-            acceptedButtons: Qt.LeftButton
-            onClicked: root.popupOpen = !root.popupOpen
-        }
+        iconSource: Quickshell.iconPath(root.iconName, "network-offline-symbolic")
+        iconColor: root.connected ? "#cdd6f4" : "#6c7086"
+        iconOpacity: root.connected ? 1 : 0.7
+        popupOpen: root.popupOpen
+        onClicked: root.popupStateRequested(!root.popupOpen)
     }
 
     PopupWindow {

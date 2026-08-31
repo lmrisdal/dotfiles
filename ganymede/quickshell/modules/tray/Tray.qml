@@ -7,11 +7,32 @@ import QtQuick
 Item {
     id: root
 
-    property Item overflowTarget: null
+    required property var shellScreen
     property var hiddenItemIds: []
     property var manuallyHiddenIds: []
     property var itemOrder: []
+    property bool dragActive: false
+    property var dragItem: null
+    property bool dragSourceHidden: false
+    property Item dragContainer: null
+    property Item dragShowTarget: null
+    property var dragInitialOrder: []
+    property var dragInitialHiddenIds: []
+    property real dragGlobalX: 0
+    property real dragGlobalY: 0
+    property real dragIconOffsetX: 0
+    property real dragIconOffsetY: 0
+    property bool dragOverBar: false
+    property bool dragOverHiddenContainer: false
+    property bool dragOverShowTarget: false
+    property bool dragPreviewOnBar: false
+    property bool dragRemoveCandidate: false
+    readonly property real dragThreshold: Qt.styleHints.startDragDistance
     readonly property bool hasHiddenItems: SystemTray.items.values.some(item => isHidden(item))
+    readonly property bool draggedItemCanShow: dragItem
+        && manuallyHiddenIds.includes(dragItem.id)
+        && dragItem.status !== Status.Passive
+        && !hiddenItemIds.includes(dragItem.id)
 
     implicitWidth: layout.implicitWidth
     implicitHeight: layout.implicitHeight
@@ -50,22 +71,8 @@ Item {
         }))
     }
 
-    function setManuallyHidden(itemId, hidden) {
-        const updatedIds = manuallyHiddenIds.filter(id => id !== itemId)
-        if (hidden)
-            updatedIds.push(itemId)
-
-        manuallyHiddenIds = updatedIds
-        saveState()
-    }
-
-    function pointerIsOver(source, pointerX, pointerY, target) {
-        const pointer = source.mapToItem(null, pointerX, pointerY)
-        const targetPosition = target.mapToItem(null, 0, 0)
-        return pointer.x >= targetPosition.x
-            && pointer.x <= targetPosition.x + target.width
-            && pointer.y >= targetPosition.y
-            && pointer.y <= targetPosition.y + target.height
+    function arraysEqual(left, right) {
+        return left.length === right.length && left.every((value, index) => value === right[index])
     }
 
     function orderIndex(item) {
@@ -75,7 +82,8 @@ Item {
 
     function orderedItems(hidden) {
         return SystemTray.items.values
-            .filter(item => isHidden(item) === hidden)
+            .filter(item => isHidden(item) === hidden
+                    || (!hidden && dragPreviewOnBar && dragItem === item))
             .sort((left, right) => orderIndex(left) - orderIndex(right))
     }
 
@@ -94,8 +102,9 @@ Item {
 
         const source = order.splice(sourceIndex, 1)[0]
         order.splice(order.findIndex(item => item.id === targetId), 0, source)
-        itemOrder = order.map(item => item.id)
-        saveState()
+        const updatedOrder = order.map(item => item.id)
+        if (!arraysEqual(itemOrder, updatedOrder))
+            itemOrder = updatedOrder
     }
 
     function reorderAfter(sourceId, targetId) {
@@ -114,34 +123,183 @@ Item {
         const source = order.splice(sourceIndex, 1)[0]
         const insertAt = order.findIndex(item => item.id === targetId) + 1
         order.splice(insertAt, 0, source)
-        itemOrder = order.map(item => item.id)
-        saveState()
+        const updatedOrder = order.map(item => item.id)
+        if (!arraysEqual(itemOrder, updatedOrder))
+            itemOrder = updatedOrder
     }
 
-    function reorderAt(source, container, pointerX) {
+    function globalRect(item) {
+        if (!item)
+            return null
+
+        const position = item.mapToGlobal(0, 0)
+        return {
+            x: position.x,
+            y: position.y,
+            width: item.width,
+            height: item.height
+        }
+    }
+
+    function pointInRect(pointerX, pointerY, rect) {
+        return rect
+            && pointerX >= rect.x
+            && pointerX <= rect.x + rect.width
+            && pointerY >= rect.y
+            && pointerY <= rect.y + rect.height
+    }
+
+    function reorderAtGlobal(sourceId, container, pointerX, pointerY, flowLayout) {
         const targets = container.children
-            .filter(child => child !== source && child.trayItem && child.hidden === source.hidden)
-            .sort((left, right) => left.x - right.x)
+            .filter(child => child.trayItem && child.trayItem.id !== sourceId && child.visible)
+            .map(child => ({ child: child, rect: globalRect(child) }))
+            .sort((left, right) => {
+                if (flowLayout && Math.abs(left.rect.y - right.rect.y) > 2)
+                    return left.rect.y - right.rect.y
+                return left.rect.x - right.rect.x
+            })
 
         if (targets.length === 0)
             return
 
-        for (let index = 0; index < targets.length; index++) {
-            const target = targets[index]
-            if (pointerX < target.x + target.width / 2) {
-                reorder(source.trayItem.id, target.trayItem.id)
+        if (!flowLayout) {
+            for (const target of targets) {
+                if (pointerX < target.rect.x + target.rect.width / 2) {
+                    reorder(sourceId, target.child.trayItem.id)
+                    return
+                }
+            }
+
+            reorderAfter(sourceId, targets[targets.length - 1].child.trayItem.id)
+            return
+        }
+
+        const rows = []
+        for (const target of targets) {
+            let row = rows.find(candidate => Math.abs(candidate.y - target.rect.y) <= 2)
+            if (!row) {
+                row = { y: target.rect.y, targets: [] }
+                rows.push(row)
+            }
+            row.targets.push(target)
+        }
+
+        let selectedRow = rows[rows.length - 1]
+        for (let index = 0; index < rows.length; index++) {
+            const nextRow = rows[index + 1]
+            if (!nextRow || pointerY < (rows[index].y + nextRow.y) / 2) {
+                selectedRow = rows[index]
+                break
+            }
+        }
+
+        for (const target of selectedRow.targets) {
+            if (pointerX < target.rect.x + target.rect.width / 2) {
+                reorder(sourceId, target.child.trayItem.id)
                 return
             }
         }
 
-        reorderAfter(source.trayItem.id, targets[targets.length - 1].trayItem.id)
+        reorderAfter(sourceId, selectedRow.targets[selectedRow.targets.length - 1].child.trayItem.id)
+    }
+
+    function beginDrag(item, source, pointerX, pointerY, pressX, pressY,
+                       hidden, container, showTarget) {
+        if (dragActive)
+            cancelDrag()
+
+        dragActive = true
+        dragItem = item
+        dragSourceHidden = hidden
+        dragContainer = container
+        dragShowTarget = showTarget
+        dragInitialOrder = itemOrder.slice()
+        dragInitialHiddenIds = manuallyHiddenIds.slice()
+        dragIconOffsetX = pressX - (source.width - 22) / 2
+        dragIconOffsetY = pressY - (source.height - 22) / 2
+        updateDrag(source, pointerX, pointerY)
+    }
+
+    function updateDrag(source, pointerX, pointerY) {
+        if (!dragActive)
+            return
+
+        const pointer = source.mapToGlobal(pointerX, pointerY)
+        dragGlobalX = pointer.x
+        dragGlobalY = pointer.y
+
+        const barRect = globalRect(layout)
+        dragOverBar = pointInRect(pointer.x, pointer.y, barRect)
+        dragOverHiddenContainer = dragSourceHidden
+            && pointInRect(pointer.x, pointer.y, globalRect(dragContainer))
+        dragOverShowTarget = dragSourceHidden
+            && pointInRect(pointer.x, pointer.y, globalRect(dragShowTarget))
+        dragPreviewOnBar = dragSourceHidden && draggedItemCanShow && dragOverBar
+        dragRemoveCandidate = !dragSourceHidden && barRect && pointer.y > barRect.y + barRect.height
+
+        if (dragOverBar && (!dragSourceHidden || draggedItemCanShow))
+            reorderAtGlobal(dragItem.id, layout, pointer.x, pointer.y, false)
+        else if (dragOverHiddenContainer)
+            reorderAtGlobal(dragItem.id, dragContainer, pointer.x, pointer.y, true)
+    }
+
+    function resetDrag() {
+        dragActive = false
+        dragItem = null
+        dragSourceHidden = false
+        dragContainer = null
+        dragShowTarget = null
+        dragInitialOrder = []
+        dragInitialHiddenIds = []
+        dragOverBar = false
+        dragOverHiddenContainer = false
+        dragOverShowTarget = false
+        dragPreviewOnBar = false
+        dragRemoveCandidate = false
+    }
+
+    function cancelDrag() {
+        if (!dragActive)
+            return
+
+        itemOrder = dragInitialOrder.slice()
+        manuallyHiddenIds = dragInitialHiddenIds.slice()
+        resetDrag()
+    }
+
+    function finishDrag() {
+        if (!dragActive)
+            return false
+
+        let validDrop = false
+        if (!dragSourceHidden && dragRemoveCandidate) {
+            const updatedIds = manuallyHiddenIds.filter(id => id !== dragItem.id)
+            updatedIds.push(dragItem.id)
+            manuallyHiddenIds = updatedIds
+            validDrop = true
+        } else if (!dragSourceHidden && dragOverBar) {
+            validDrop = true
+        } else if (dragSourceHidden && draggedItemCanShow
+                   && (dragPreviewOnBar || dragOverShowTarget)) {
+            manuallyHiddenIds = manuallyHiddenIds.filter(id => id !== dragItem.id)
+            validDrop = true
+        } else if (dragSourceHidden && dragOverHiddenContainer) {
+            validDrop = true
+        }
+
+        if (!validDrop) {
+            cancelDrag()
+            return false
+        }
+
+        saveState()
+        resetDrag()
+        return true
     }
 
     component TrayIcon: MouseArea {
         id: trayIcon
         required property var trayItem
-        property bool hidden: false
-        property var showTarget: null
         property bool didDrag: false
         property real pressX: 0
         property real pressY: 0
@@ -159,7 +317,8 @@ Item {
             anchors.topMargin: 8
             anchors.bottomMargin: 8
             radius: height / 2
-            color: trayIcon.pressed ? "#585b70" : "transparent"
+            color: trayIcon.pressed && !(root.dragActive && root.dragItem === trayItem)
+                ? "#585b70" : "transparent"
         }
 
         IconImage {
@@ -167,7 +326,12 @@ Item {
             width: 22
             height: 22
             source: trayItem.icon
-            opacity: trayIcon.didDrag ? 0.45 : 1
+            opacity: root.dragActive && root.dragItem === trayItem ? 0 : 1
+        }
+
+        Behavior on x {
+            enabled: root.dragActive
+            NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
         }
 
         preventStealing: true
@@ -182,25 +346,35 @@ Item {
             if (!pressed || !(pressedButtons & Qt.LeftButton))
                 return
 
+            if (!didDrag && !(mouse.modifiers & Qt.ControlModifier))
+                return
+
             const deltaX = mouse.x - pressX
             const deltaY = mouse.y - pressY
 
-            if (Math.abs(deltaX) < 5 || Math.abs(deltaX) <= Math.abs(deltaY))
+            if (!didDrag && Math.hypot(deltaX, deltaY) < root.dragThreshold)
                 return
 
-            didDrag = true
-            root.reorderAt(trayIcon, trayIcon.parent, trayIcon.x + mouse.x)
+            if (!didDrag) {
+                didDrag = true
+                root.beginDrag(trayItem, trayIcon, mouse.x, mouse.y, pressX, pressY,
+                               false, trayIcon.parent, null)
+            } else {
+                root.updateDrag(trayIcon, mouse.x, mouse.y)
+            }
         }
 
         onReleased: mouse => {
-            if (didDrag && !hidden && root.overflowTarget
-                    && root.pointerIsOver(trayIcon, mouse.x, mouse.y, root.overflowTarget))
-                root.setManuallyHidden(trayItem.id, true)
-            else if (didDrag && hidden && showTarget
-                     && root.pointerIsOver(trayIcon, mouse.x, mouse.y, showTarget))
-                root.setManuallyHidden(trayItem.id, false)
+            if (didDrag)
+                root.finishDrag()
 
             Qt.callLater(() => didDrag = false)
+        }
+
+        onCanceled: {
+            if (didDrag)
+                root.cancelDrag()
+            didDrag = false
         }
 
         function openMenu() {
@@ -240,9 +414,18 @@ Item {
             delegate: TrayIcon {
                 required property var modelData
                 visible: !root.isHidden(modelData)
-                hidden: false
+                    || (root.dragPreviewOnBar && root.dragItem === modelData)
                 trayItem: modelData
             }
         }
+    }
+
+    TrayDragOverlay {
+        shellScreen: root.shellScreen
+        dragActive: root.dragActive
+        iconSource: root.dragItem ? root.dragItem.icon : ""
+        iconX: root.dragGlobalX - root.shellScreen.x - root.dragIconOffsetX
+        iconY: root.dragGlobalY - root.shellScreen.y - root.dragIconOffsetY
+        removeCandidate: root.dragRemoveCandidate
     }
 }

@@ -9,6 +9,8 @@ import Qt5Compat.GraphicalEffects
 Item {
     id: root
 
+    signal popupStateRequested(bool open)
+
     readonly property var player: Mpris.players.values.find(candidate => candidate.isPlaying)
         || Mpris.players.values.find(candidate => candidate.playbackState === MprisPlaybackState.Paused)
         || null
@@ -309,7 +311,7 @@ Item {
             width: 220
             height: parent.height
             hoverEnabled: true
-            onClicked: root.popupOpen = !root.popupOpen
+            onClicked: root.popupStateRequested(!root.popupOpen)
         }
     }
 

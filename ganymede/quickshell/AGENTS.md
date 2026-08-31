@@ -34,11 +34,18 @@
   clickable from the top-right screen corner without its background touching
   the top or right edge.
 - Give the clock pill generous horizontal padding: size its hit target to the
-  content width plus 24 pixels while keeping the visible pill inset by 4 pixels.
+  content width plus 16 pixels while keeping the visible pill inset by 4 pixels.
+- Build standard icon controls from `BarIconButton.qml` and standard text
+  controls from `BarTextButton.qml` so their hit targets, pressed pills, content
+  padding, and edge-hit behavior remain consistent. Compound controls such as
+  Workspaces and Tray may keep natural content widths.
 - Keep visible tray icons at 22 pixels and pack their item containers tightly.
   Tray pressed surfaces must be circles or, preferably, horizontal pills—never
   vertical capsules. The current tray treatment uses 30-pixel-wide containers,
   no row spacing, and a 28-by-24-pixel pressed pill.
+- All bar components and sections must respect the global `itemSpacing` property
+  from `bar.json`. Do not hardcode per-component or per-section gaps that bypass
+  this setting; reserve component-local spacing for content within a component.
 
 ## QML and Quickshell conventions
 

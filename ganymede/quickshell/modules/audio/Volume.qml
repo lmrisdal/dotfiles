@@ -1,11 +1,12 @@
 import Quickshell
 import Quickshell.Services.Pipewire
-import Quickshell.Widgets
 import QtQuick
-import Qt5Compat.GraphicalEffects
+import "../bar"
 
 Item {
     id: root
+
+    signal popupStateRequested(bool open)
 
     readonly property var sink: Pipewire.defaultAudioSink
     readonly property var audio: sink ? sink.audio : null
@@ -26,7 +27,7 @@ Item {
         return "audio-volume-high-symbolic"
     }
 
-    implicitWidth: 38
+    implicitWidth: 30
     implicitHeight: 40
 
     PwObjectTracker {
@@ -47,51 +48,23 @@ Item {
             microphone.volume = Math.max(0, Math.min(1, value))
     }
 
-    Rectangle {
+    BarIconButton {
         id: volumeButton
         anchors.fill: parent
-        color: "transparent"
+        iconSource: Quickshell.iconPath(root.iconName, "audio-volume-high-symbolic")
+        iconColor: root.audio ? "#cdd6f4" : "#6c7086"
+        iconOpacity: root.audio ? 1 : 0.7
+        popupOpen: root.popupOpen
+        interactionEnabled: root.audio !== null
+        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
 
-        Rectangle {
-            anchors.fill: parent
-            anchors.leftMargin: 3
-            anchors.rightMargin: 3
-            anchors.topMargin: 5
-            anchors.bottomMargin: 5
-            radius: height / 2
-            color: volumeMouse.pressed || root.popupOpen ? "#585b70" : "transparent"
+        onClicked: mouse => {
+            if (mouse.button === Qt.LeftButton)
+                root.popupStateRequested(!root.popupOpen)
+            else if (mouse.button === Qt.MiddleButton)
+                root.audio.muted = !root.audio.muted
         }
-
-        IconImage {
-            id: volumeIcon
-            anchors.centerIn: parent
-            width: 22
-            height: 22
-            source: Quickshell.iconPath(root.iconName, "audio-volume-high-symbolic")
-            visible: false
-        }
-
-        ColorOverlay {
-            anchors.fill: volumeIcon
-            source: volumeIcon
-            color: root.audio ? "#cdd6f4" : "#6c7086"
-            opacity: root.audio ? 1 : 0.7
-        }
-
-        MouseArea {
-            id: volumeMouse
-            anchors.fill: parent
-            enabled: root.audio !== null
-            acceptedButtons: Qt.LeftButton | Qt.MiddleButton
-
-            onClicked: mouse => {
-                if (mouse.button === Qt.LeftButton)
-                    root.popupOpen = !root.popupOpen
-                else if (mouse.button === Qt.MiddleButton)
-                    root.audio.muted = !root.audio.muted
-            }
-            onWheel: wheel => root.adjustVolume(wheel.angleDelta.y > 0 ? 0.05 : -0.05)
-        }
+        onWheeled: wheel => root.adjustVolume(wheel.angleDelta.y > 0 ? 0.05 : -0.05)
     }
 
     PopupWindow {

@@ -32,6 +32,7 @@ Scope {
         layoutConfig.right
     )
     property var activePopupOwner: null
+    property var pendingPopupOwner: null
 
     function normalizedLayout(left, middle, right) {
         const result = { left: [], middle: [], right: [] }
@@ -69,9 +70,47 @@ Scope {
         }
     }
 
+    function requestPopupState(owner, shouldOpen) {
+        if (!shouldOpen) {
+            if (pendingPopupOwner === owner) {
+                pendingPopupOwner = null
+                popupHandoffTimer.stop()
+            }
+            owner.popupOpen = false
+            return
+        }
+
+        if (popupHandoffTimer.running) {
+            pendingPopupOwner = owner
+            return
+        }
+
+        if (!activePopupOwner || activePopupOwner === owner) {
+            owner.popupOpen = true
+            return
+        }
+
+        pendingPopupOwner = owner
+        activePopupOwner.popupOpen = false
+        popupHandoffTimer.restart()
+    }
+
     function closeActivePopup() {
+        pendingPopupOwner = null
+        popupHandoffTimer.stop()
         if (activePopupOwner)
             activePopupOwner.popupOpen = false
+    }
+
+    Timer {
+        id: popupHandoffTimer
+        interval: 140
+        onTriggered: {
+            const owner = root.pendingPopupOwner
+            root.pendingPopupOwner = null
+            if (owner)
+                owner.popupOpen = true
+        }
     }
 
     FileView {
@@ -83,9 +122,11 @@ Scope {
         JsonAdapter {
             id: layoutConfig
 
-            property list<string> left: ["workspace", "appmenu"]
-            property list<string> middle: ["clock"]
-            property list<string> right: ["media", "tray", "network", "audio", "control_center"]
+            property int horizontalPadding: 12
+            property int itemSpacing: 0
+            property list<string> left: []
+            property list<string> middle: []
+            property list<string> right: []
         }
     }
 
@@ -162,26 +203,35 @@ Scope {
                     onClicked: root.closeActivePopup()
                 }
 
-                BarSection {
-                    anchors.left: parent.left
-                    anchors.leftMargin: 14
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 8
-                    itemNames: root.configuredLayout.left
-                    barContext: barSurface
-                }
+                Item {
+                    id: barContent
 
-                BarSection {
-                    anchors.centerIn: parent
-                    itemNames: root.configuredLayout.middle
-                    barContext: barSurface
-                }
+                    anchors.fill: parent
+                    anchors.leftMargin: layoutConfig.horizontalPadding
+                    anchors.rightMargin: layoutConfig.horizontalPadding
 
-                BarSection {
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    itemNames: root.configuredLayout.right
-                    barContext: barSurface
+                    BarSection {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: layoutConfig.itemSpacing
+                        itemNames: root.configuredLayout.left
+                        barContext: barSurface
+                    }
+
+                    BarSection {
+                        anchors.centerIn: parent
+                        spacing: layoutConfig.itemSpacing
+                        itemNames: root.configuredLayout.middle
+                        barContext: barSurface
+                    }
+
+                    BarSection {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: layoutConfig.itemSpacing
+                        itemNames: root.configuredLayout.right
+                        barContext: barSurface
+                    }
                 }
 
                 Component {
@@ -189,7 +239,10 @@ Scope {
 
                     Workspace {
                         id: workspaceItem
+                        leftEdgeHitInset: root.configuredLayout.left[0] === "workspace"
+                            ? layoutConfig.horizontalPadding : 0
                         desktopService: workspaces
+                        onPopupStateRequested: shouldOpen => root.requestPopupState(workspaceItem, shouldOpen)
                         onPopupOpenChanged: root.updatePopupOwner(workspaceItem, popupOpen)
                     }
                 }
@@ -205,6 +258,11 @@ Scope {
 
                     Clock {
                         id: clockItem
+                        leftEdgeHitInset: root.configuredLayout.left[0] === "clock"
+                            ? layoutConfig.horizontalPadding : 0
+                        rightEdgeHitInset: root.configuredLayout.right[root.configuredLayout.right.length - 1] === "clock"
+                            ? layoutConfig.horizontalPadding : 0
+                        onPopupStateRequested: shouldOpen => root.requestPopupState(clockItem, shouldOpen)
                         onPopupOpenChanged: root.updatePopupOwner(clockItem, popupOpen)
                     }
                 }
@@ -214,6 +272,7 @@ Scope {
 
                     BudsLink {
                         id: budsLinkItem
+                        onPopupStateRequested: shouldOpen => root.requestPopupState(budsLinkItem, shouldOpen)
                         onPopupOpenChanged: root.updatePopupOwner(budsLinkItem, popupOpen)
                     }
                 }
@@ -223,6 +282,7 @@ Scope {
 
                     MediaControls {
                         id: mediaItem
+                        onPopupStateRequested: shouldOpen => root.requestPopupState(mediaItem, shouldOpen)
                         onPopupOpenChanged: root.updatePopupOwner(mediaItem, popupOpen)
                     }
                 }
@@ -231,7 +291,7 @@ Scope {
                     id: trayComponent
 
                     Tray {
-                        overflowTarget: barSurface.itemFor("control_center")
+                        shellScreen: panel.screen
                         hiddenItemIds: [
                         ]
                     }
@@ -242,6 +302,7 @@ Scope {
 
                     Network {
                         id: networkItem
+                        onPopupStateRequested: shouldOpen => root.requestPopupState(networkItem, shouldOpen)
                         onPopupOpenChanged: root.updatePopupOwner(networkItem, popupOpen)
                     }
                 }
@@ -251,6 +312,7 @@ Scope {
 
                     Volume {
                         id: audioItem
+                        onPopupStateRequested: shouldOpen => root.requestPopupState(audioItem, shouldOpen)
                         onPopupOpenChanged: root.updatePopupOwner(audioItem, popupOpen)
                     }
                 }
@@ -260,9 +322,14 @@ Scope {
 
                     ControlCenter {
                         id: controlCenterItem
+                        leftEdgeHitInset: root.configuredLayout.left[0] === "control_center"
+                            ? layoutConfig.horizontalPadding : 0
+                        rightEdgeHitInset: root.configuredLayout.right[root.configuredLayout.right.length - 1] === "control_center"
+                            ? layoutConfig.horizontalPadding : 0
                         tray: barSurface.itemFor("tray")
                         notificationServer: notifications.server
                         doNotDisturb: notifications.doNotDisturb
+                        onPopupStateRequested: shouldOpen => root.requestPopupState(controlCenterItem, shouldOpen)
                         onPopupOpenChanged: root.updatePopupOwner(controlCenterItem, popupOpen)
                     }
                 }

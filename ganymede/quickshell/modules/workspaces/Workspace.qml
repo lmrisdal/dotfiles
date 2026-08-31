@@ -4,9 +4,12 @@ import QtQuick
 Item {
     id: root
 
+    signal popupStateRequested(bool open)
+
     required property var desktopService
     property bool popupOpen: false
     property var selectedDesktop: null
+    property int leftEdgeHitInset: 0
 
     implicitWidth: desktopLayout.implicitWidth
     implicitHeight: desktopLayout.implicitHeight
@@ -22,6 +25,7 @@ Item {
 
             delegate: Rectangle {
                 id: desktopButton
+                required property int index
                 required property var modelData
 
                 readonly property bool active: modelData.id === root.desktopService.currentDesktopId
@@ -62,14 +66,20 @@ Item {
 
                 MouseArea {
                     id: desktopMouse
-                    anchors.fill: parent
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.leftMargin: index === 0 ? -root.leftEdgeHitInset : 0
+                    anchors.topMargin: index === 0 && root.leftEdgeHitInset > 0 ? -8 : 0
+                    anchors.bottomMargin: index === 0 && root.leftEdgeHitInset > 0 ? -8 : 0
                     hoverEnabled: true
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
 
                     onClicked: mouse => {
                         if (mouse.button === Qt.RightButton) {
                             root.selectedDesktop = desktopButton.modelData
-                            root.popupOpen = true
+                            root.popupStateRequested(true)
                         } else {
                             root.popupOpen = false
                             root.desktopService.switchTo(desktopButton.modelData.id)
